@@ -2,10 +2,12 @@
 *.class
 *.log
 *.pyc
+*.cxx
 *.swp
 .DS_Store
 .atom/
 .build/
+.android/app/.cxx/
 .buildlog/
 .history
 .svn/
