@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "375278576151",
+    "project_id": "baatu-digiwellie",
+    "storage_bucket": "baatu-digiwellie.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:375278576151:android:c3684e93b1ea87affd7252",
+        "android_client_info": {
+          "package_name": "com.digiwellie.baatu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMW4kT_UzIHLgte2fjQzr0SJZ_M4A1QA4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

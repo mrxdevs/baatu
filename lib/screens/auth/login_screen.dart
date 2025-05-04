@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_styles.dart';
+import '../../services/auth_service.dart';
+import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,6 +13,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
@@ -21,132 +24,137 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              Image.asset(
-                'assets/images/bee.png',
-                height: 120,
-              ),
-              const SizedBox(height: 40),
-              const Text(
-                'Hello!',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppStyles.primaryColor,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                Image.asset(
+                  'assets/images/bee.png',
+                  height: 120,
                 ),
-              ),
-              const SizedBox(height: 40),
-              TextField(
-                controller: _emailController,
-                decoration: AppStyles.textFieldDecoration.copyWith(
-                  hintText: 'Email',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: AppStyles.textFieldDecoration.copyWith(
-                  hintText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/forgot-password');
-                  },
-                  child: const Text(
-                    'Forgot Password?',
-                    style: TextStyle(color: AppStyles.primaryColor),
+                const SizedBox(height: 40),
+                const Text(
+                  'Hello!',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppStyles.primaryColor,
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Simulate successful login and navigate to home
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/home',
-                      (route) => false,
-                    );
+                const SizedBox(height: 40),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: AppStyles.textFieldDecoration.copyWith(
+                    hintText: 'Email',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      return 'Please enter a valid email';
+                    }
+                    return null;
                   },
-                  style: AppStyles.primaryButtonStyle,
-                  child: const Text('Login'),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Don't have an account? "),
-                  TextButton(
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: AppStyles.textFieldDecoration.copyWith(
+                    hintText: 'Password',
+                    prefixIcon: const Icon(Icons.lock_outlined),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/register');
+                      Navigator.pushNamed(context, '/forgot-password');
                     },
                     child: const Text(
-                      'Register',
+                      'Forgot Password?',
                       style: TextStyle(color: AppStyles.primaryColor),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Row(
-                children: [
-                  Expanded(child: Divider()),
+                ),
+                if (authService.errorMessage != null)
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Or login with'),
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      authService.errorMessage!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
                   ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildSocialButton('assets/images/google_logo.png', () {}),
-                  const SizedBox(width: 16),
-                  _buildSocialButton('assets/images/facebook_logo.png', () {}),
-                  const SizedBox(width: 16),
-                  _buildSocialButton('assets/images/apple-logo.png', () {}),
-                ],
-              ),
-            ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: authService.isLoading
+                        ? null
+                        : () async {
+                            if (_formKey.currentState!.validate()) {
+                              bool success = await authService.signInWithEmailAndPassword(
+                                _emailController.text.trim(),
+                                _passwordController.text.trim(),
+                              );
+                              
+                              if (success && mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/home',
+                                  (route) => false,
+                                );
+                              }
+                            }
+                          },
+                    style: AppStyles.primaryButtonStyle,
+                    child: authService.isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Login'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Don't have an account? ",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pushNamed(context, '/register');
+                      },
+                      child: const Text(
+                        'Register',
+                        style: TextStyle(
+                          color: AppStyles.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSocialButton(String iconPath, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Image.asset(
-          iconPath,
-          height: 24,
-          width: 24,
         ),
       ),
     );
