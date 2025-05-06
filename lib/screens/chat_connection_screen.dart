@@ -6,6 +6,7 @@ class ChatConnectionScreen extends StatefulWidget {
 
   @override
   State<ChatConnectionScreen> createState() => _ChatConnectionScreenState();
+  static const String routeName = '/chat_connection_screen';
 }
 
 class _ChatConnectionScreenState extends State<ChatConnectionScreen> {

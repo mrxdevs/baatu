@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class WordsScreen extends StatelessWidget {
   const WordsScreen({super.key});
+  static const routeName = '/words_screen';
 
   @override
   Widget build(BuildContext context) {

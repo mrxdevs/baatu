@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class MusicScreen extends StatelessWidget {
   const MusicScreen({super.key});
+  static const String routeName = '/music_screen';
 
   @override
   Widget build(BuildContext context) {

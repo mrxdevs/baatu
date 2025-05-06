@@ -1,3 +1,4 @@
+import 'package:baatu/screens/auth/learning_preferences_screen.dart';
 import 'package:flutter/material.dart';
 import '../../utils/app_styles.dart';
 import '../../services/auth_service.dart';
@@ -8,6 +9,7 @@ class RegisterScreen extends StatefulWidget {
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
+  static const String routeName = '/register_screen';
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
@@ -151,7 +153,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               );
                               
                               if (success && mounted) {
-                                Navigator.pushNamed(context, '/preferences');
+                                Navigator.pushNamed(context, LearningPreferencesScreen.routeName);
                               }
                             }
                           },

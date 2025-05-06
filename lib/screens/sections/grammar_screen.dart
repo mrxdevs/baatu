@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class GrammarScreen extends StatelessWidget {
   const GrammarScreen({super.key});
+  static const String routeName = '/grammar_screen';
 
   @override
   Widget build(BuildContext context) {

@@ -6,6 +6,7 @@ class ChatScreen extends StatefulWidget {
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
+  static const String routeName = '/chat_screen';
 }
 
 class _ChatScreenState extends State<ChatScreen> {

@@ -1,3 +1,4 @@
+import 'package:baatu/screens/auth/success_screen.dart';
 import 'package:flutter/material.dart';
 import '../../utils/app_styles.dart';
 import '../../services/auth_service.dart';
@@ -8,6 +9,7 @@ class LearningPreferencesScreen extends StatefulWidget {
 
   @override
   State<LearningPreferencesScreen> createState() => _LearningPreferencesScreenState();
+  static const String routeName = '/learning_preferences';
 }
 
 class _LearningPreferencesScreenState extends State<LearningPreferencesScreen> {
@@ -195,7 +197,7 @@ class _LearningPreferencesScreenState extends State<LearningPreferencesScreen> {
                           bool success = await authService.updateUserPreferences(preferences);
                           
                           if (success && mounted) {
-                            Navigator.pushNamed(context, '/success');
+                            Navigator.pushNamed(context, SuccessScreen.routeName);
                           }
                         },
                   style: AppStyles.primaryButtonStyle,

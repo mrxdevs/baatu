@@ -150,26 +150,27 @@ class AuthService extends ChangeNotifier {
 
   // Check if user is authenticated and token is valid
   Future<bool> validateUser() async {
-    User? currentUser = _auth.currentUser;
-    
-    if (currentUser == null) {
-      return false;
-    }
-    
     try {
-      // Force token refresh to ensure it's valid
-      await currentUser.reload();
-      await currentUser.getIdToken(true);
+      // Check if user is already authenticated
+      User? currentUser = _auth.currentUser;
       
-      // If we get here without exceptions, token is valid
-      if (_userData == null) {
-        // Fetch user data if not already loaded
-        await _fetchAndStoreUserData(currentUser.uid);
+      if (currentUser == null) {
+        print('No current user found');
+        return false;
       }
       
-      return true;
+      // Verify token is still valid
+      try {
+        await currentUser.reload();
+        String? token = await currentUser.getIdToken(true);
+        print('User authenticated with valid token');
+        return token != null;
+      } catch (e) {
+        print('Token validation failed: $e');
+        return false;
+      }
     } catch (e) {
-      print('Token validation failed: $e');
+      print('Error validating user: $e');
       return false;
     }
   }

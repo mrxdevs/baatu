@@ -1,3 +1,4 @@
+import 'package:baatu/screens/auth/otp_verification_screen.dart';
 import 'package:flutter/material.dart';
 import '../../utils/app_styles.dart';
 
@@ -6,6 +7,7 @@ class ForgotPasswordScreen extends StatefulWidget {
 
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  static const routeName = '/forgot-password';
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
@@ -69,7 +71,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushNamed(context, '/verify-otp');
+                    Navigator.pushNamed(context, OtpVerificationScreen.routeName);
                   },
                   style: AppStyles.primaryButtonStyle,
                   child: const Text('Send code'),

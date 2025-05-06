@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class ProfileScreen extends StatelessWidget {
+  static const String routeName = '/profile_screen';
   const ProfileScreen({super.key});
+
 
   Widget _buildProgressIndicator(String label, double percentage, Color color) {
     return Column(

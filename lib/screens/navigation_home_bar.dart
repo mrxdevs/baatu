@@ -14,6 +14,7 @@ class HomeNavigationScreen extends StatefulWidget {
 
   @override
   State<HomeNavigationScreen> createState() => _HomeNavigationScreenState();
+  static const String routeName = '/home_navigation';
 }
 
 class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
