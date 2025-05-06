@@ -30,15 +30,16 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: ^2.15.1
-  firebase_auth: ^4.9.0
-  cloud_firestore: ^4.9.1
-  firebase_storage: ^11.2.6
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.3
+  cloud_firestore: ^5.6.7
+  firebase_storage: ^12.4.5
   provider: ^6.0.5
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.9
   google_fonts: ^6.1.0
   http: ^1.1.0
+  firebase_app_check: ^0.3.2+5
   # firebase_core: ^3.13.0
 
 dev_dependencies:

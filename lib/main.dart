@@ -1,3 +1,4 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -9,14 +10,18 @@ import 'screens/auth/learning_preferences_screen.dart';
 import 'screens/auth/success_screen.dart';
 import 'screens/navigation_home_bar.dart';
 import 'utils/app_styles.dart';
-import 'services/firebase_options.dart';
 import 'services/auth_service.dart';
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    // options: DefaultFirebaseOptions.currentPlatform,
+  await Firebase.initializeApp();
+   await FirebaseAppCheck.instance.activate(
+    // You might need a webRecaptchaSiteKey if you enable web App Check later,
+    // but for Android debug, you mainly need the androidProvider.
+    // webRecaptchaSiteKey: 'recaptcha-v3-site-key', // Optional for this case
+    androidProvider: true
+        ? AndroidProvider.debug // Use Debug Provider in debug builds
+        : AndroidProvider.playIntegrity
   );
   runApp(
     MultiProvider(
@@ -33,6 +38,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    
     return MaterialApp(
       title: 'Language Learning App',
       debugShowCheckedModeBanner: false,
@@ -45,7 +52,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      initialRoute: '/login',
+      initialRoute: authService.isAuthenticated ? '/home' : '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
