@@ -33,15 +33,67 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isInitialized = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    _validateUserOnStartup();
+  }
+  
+  Future<void> _validateUserOnStartup() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.validateUser();
+    } catch (e) {
+      print('Error during user validation: $e');
+      // Handle the error gracefully
+    } finally {
+      // Always set initialization to true, even if validation fails
+      setState(() {
+        _isInitialized = true;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     
+    if (!_isInitialized) {
+      return MaterialApp(
+        title: 'Language Learning App',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          primaryColor: AppStyles.primaryColor,
+          scaffoldBackgroundColor: AppStyles.backgroundColor,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: AppStyles.primaryColor,
+            primary: AppStyles.primaryColor,
+          ),
+          useMaterial3: true,
+        ),
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(
+              color: AppStyles.primaryColor,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Use a simpler approach without initialRoute or routes
     return MaterialApp(
-      title: 'Language Learning App',
+      title: 'Baatu',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: AppStyles.primaryColor,
@@ -52,16 +104,9 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      initialRoute: authService.isAuthenticated ? '/home' : '/login',
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/forgot-password': (context) => const ForgotPasswordScreen(),
-        '/verify-otp': (context) => const OtpVerificationScreen(),
-        '/preferences': (context) => const LearningPreferencesScreen(),
-        '/success': (context) => const SuccessScreen(),
-        '/home': (context) => const HomeNavigationScreen(),
-      },
+      // Use home directly instead of initialRoute
+      home: const HomeNavigationScreen(),
+      // Remove routes and onGenerateRoute completely
     );
   }
 }

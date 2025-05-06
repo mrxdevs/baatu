@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -8,19 +9,110 @@ class AuthService extends ChangeNotifier {
   User? _user;
   bool _isLoading = false;
   String? _errorMessage;
+  Map<String, dynamic>? _userData;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _user != null;
+  Map<String, dynamic>? get userData => _userData;
 
   AuthService() {
     print('Initializing AuthService');
-    _auth.authStateChanges().listen((User? user) {
+    _initializeAuth();
+  }
+
+  Future<void> _initializeAuth() async {
+    // Listen for auth state changes
+    _auth.authStateChanges().listen((User? user) async {
       print('Auth state changed. User: ${user?.email ?? 'null'}');
       _user = user;
+      
+      if (user != null) {
+        // Fetch and store user data when authenticated
+        await _fetchAndStoreUserData(user.uid);
+      } else {
+        _userData = null;
+      }
+      
       notifyListeners();
     });
+    
+    // Check for cached user data on startup
+    await _loadCachedUserData();
+  }
+  
+  Future<void> _loadCachedUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? userDataString = prefs.getString('user_data');
+      final String? userId = prefs.getString('user_id');
+      
+      if (userDataString != null && userId != null && _user == null) {
+        // If we have cached data but no authenticated user,
+        // check if the token is still valid
+        User? currentUser = _auth.currentUser;
+        if (currentUser != null) {
+          // Token is still valid, update user
+          _user = currentUser;
+          
+          // Parse cached user data
+          // This is a simple approach - for complex objects consider using json_serializable
+          Map<String, dynamic> cachedData = {};
+          userDataString.split(',').forEach((item) {
+            if (item.contains(':')) {
+              List<String> keyValue = item.split(':');
+              cachedData[keyValue[0].trim()] = keyValue[1].trim();
+            }
+          });
+          
+          _userData = cachedData;
+          notifyListeners();
+          
+          // Refresh user data in background
+          _fetchAndStoreUserData(userId);
+        }
+      }
+    } catch (e) {
+      print('Error loading cached user data: $e');
+    }
+  }
+  
+  Future<void> _fetchAndStoreUserData(String uid) async {
+    try {
+      DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+      if (doc.exists) {
+        _userData = doc.data() as Map<String, dynamic>?;
+        
+        // Cache user data for offline access
+        _cacheUserData(uid, _userData);
+        
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error fetching user data: $e');
+    }
+  }
+  
+  Future<void> _cacheUserData(String uid, Map<String, dynamic>? userData) async {
+    if (userData == null) return;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Store user ID
+      await prefs.setString('user_id', uid);
+      
+      // Convert userData to a simple string representation
+      // For complex objects, consider using json_encode
+      String userDataString = userData.entries
+          .map((e) => '${e.key}:${e.value}')
+          .join(',');
+      
+      await prefs.setString('user_data', userDataString);
+    } catch (e) {
+      print('Error caching user data: $e');
+    }
   }
 
   Future<bool> signInWithEmailAndPassword(String email, String password) async {
@@ -30,14 +122,19 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _auth.signInWithEmailAndPassword(
+      UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
-      ).whenComplete((){
-        _isLoading = false;
-      notifyListeners();
-
-      });
+      );
+      
+      // Get user token for API calls if needed
+      String? token = await result.user?.getIdToken();
+      if (token != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', token);
+        print('Token stored successfully');
+      }
+      
       print('Sign in successful for email: $email');
       _isLoading = false;
       notifyListeners();
@@ -48,6 +145,52 @@ class AuthService extends ChangeNotifier {
       _errorMessage = _getMessageFromErrorCode(e.code);
       notifyListeners();
       return false;
+    }
+  }
+
+  // Check if user is authenticated and token is valid
+  Future<bool> validateUser() async {
+    User? currentUser = _auth.currentUser;
+    
+    if (currentUser == null) {
+      return false;
+    }
+    
+    try {
+      // Force token refresh to ensure it's valid
+      await currentUser.reload();
+      await currentUser.getIdToken(true);
+      
+      // If we get here without exceptions, token is valid
+      if (_userData == null) {
+        // Fetch user data if not already loaded
+        await _fetchAndStoreUserData(currentUser.uid);
+      }
+      
+      return true;
+    } catch (e) {
+      print('Token validation failed: $e');
+      return false;
+    }
+  }
+
+  Future<void> signOut() async {
+    print('Signing out current user');
+    
+    try {
+      // Clear cached data
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_data');
+      await prefs.remove('user_id');
+      await prefs.remove('auth_token');
+      
+      // Sign out from Firebase
+      await _auth.signOut();
+      
+      _userData = null;
+      print('Sign out completed');
+    } catch (e) {
+      print('Error during sign out: $e');
     }
   }
 
@@ -118,11 +261,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> signOut() async {
-    print('Signing out current user');
-    await _auth.signOut();
-    print('Sign out completed');
-  }
+
 
   Future<bool> updateUserPreferences(Map<String, dynamic> preferences) async {
     if (_user == null) {
