@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/deepseek_service.dart';
+import '../services/gemini_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -13,15 +13,15 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<ChatMessage> _messages = [];
   final List<Map<String, String>> _chatHistory = [];
-  late final DeepSeekService _deepSeekService;
+  late final GeminiService _geminiService;
   bool _isTyping = false;
 
   @override
   void initState() {
     super.initState();
-    _deepSeekService = DeepSeekService(
+    _geminiService = GeminiService(
         apiKey:
-            'sk-1a96f19c8d6c4627a8a5a96f6c8f042e'); // Replace with your API key
+            'YOUR_GEMINI_API_KEY'); // Replace with your Gemini API key
     _addInitialMessage();
   }
 
@@ -67,7 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       String fullResponse = '';
-      await for (final chunk in _deepSeekService.streamChatResponse(userMessage, _chatHistory)) {
+      await for (final chunk in _geminiService.streamChatResponse(userMessage, _chatHistory)) {
         if (mounted) {
           setState(() {
             fullResponse += chunk;

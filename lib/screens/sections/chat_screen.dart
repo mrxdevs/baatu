@@ -1,6 +1,7 @@
+import 'package:baatu/secrete/api_keys.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../../services/deepseek_service.dart';
+import '../../services/gemini_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -14,7 +15,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<Widget> _messages = [];
   final ScrollController _scrollController = ScrollController();
-  late final DeepSeekService _deepSeekService;
+  late final GeminiService _geminiService;
   bool _isTyping = false;
   String _currentStreamedResponse = '';
 
@@ -33,9 +34,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _deepSeekService = DeepSeekService(
+    _geminiService = GeminiService(
       apiKey:
-          'sk-1a96f19c8d6c4627a8a5a96f6c8f042e', // Replace with your actual API key
+          ApiKeys.googleApiKey, // Replace with your actual Gemini API key
     );
     _messages.addAll([
       _buildBotMessage(
@@ -100,7 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
       bool isFirstChunk = true;
       String partialResponse = '';
       
-      await for (final chunk in _deepSeekService.streamChatResponse(userMessage, [])) {
+      await for (final chunk in _geminiService.streamChatResponse(userMessage, [])) {
         if (mounted) {
           partialResponse += chunk;
           
@@ -140,7 +141,7 @@ class _ChatScreenState extends State<ChatScreen> {
       // Final update with formatted response
       if (mounted && partialResponse.isNotEmpty) {
         setState(() {
-          _currentStreamedResponse = _deepSeekService.formatResponse(partialResponse);
+          _currentStreamedResponse = _geminiService.formatResponse(partialResponse);
           if (_messages.length >= 2) {
             _messages.removeLast();
             _messages.removeLast();
