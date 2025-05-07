@@ -1,22 +1,19 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/auth/register_screen.dart';
-import 'screens/auth/forgot_password_screen.dart';
-import 'screens/auth/otp_verification_screen.dart';
-import 'screens/auth/learning_preferences_screen.dart';
-import 'screens/auth/success_screen.dart';
-import 'screens/navigation_home_bar.dart';
+import 'screens/splash_screen.dart';
 import 'utils/app_styles.dart';
-import 'services/firebase_options.dart';
 import 'services/auth_service.dart';
 
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    // options: DefaultFirebaseOptions.currentPlatform,
+  await Firebase.initializeApp();
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: true
+        ? AndroidProvider.debug
+        : AndroidProvider.playIntegrity,
+   appleProvider: AppleProvider.debug
   );
   runApp(
     MultiProvider(
@@ -34,7 +31,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Language Learning App',
+      title: 'Baatu',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: AppStyles.primaryColor,
@@ -45,16 +42,10 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      initialRoute: '/login',
+      initialRoute: SplashScreen.routeName,
       routes: {
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/forgot-password': (context) => const ForgotPasswordScreen(),
-        '/verify-otp': (context) => const OtpVerificationScreen(),
-        '/preferences': (context) => const LearningPreferencesScreen(),
-        '/success': (context) => const SuccessScreen(),
-        '/home': (context) => const HomeNavigationScreen(),
-      },
+        SplashScreen.routeName: (context) => const SplashScreen(),
+      }
     );
   }
 }

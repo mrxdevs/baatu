@@ -1,3 +1,6 @@
+import 'package:baatu/screens/auth/forgot_password_screen.dart';
+import 'package:baatu/screens/auth/register_screen.dart';
+import 'package:baatu/screens/navigation_home_bar.dart';
 import 'package:flutter/material.dart';
 import '../../utils/app_styles.dart';
 import '../../services/auth_service.dart';
@@ -8,6 +11,7 @@ class LoginScreen extends StatefulWidget {
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
+  static const routeName = '/login_screen';
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -86,7 +90,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/forgot-password');
+                      Navigator.pushNamed(context, ForgotPasswordScreen.routeName);
+                      
                     },
                     child: const Text(
                       'Forgot Password?',
@@ -116,11 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               );
                               
                               if (success && mounted) {
-                                Navigator.pushNamedAndRemoveUntil(
-                                  context,
-                                  '/home',
-                                  (route) => false,
-                                );
+                                Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_)=>HomeNavigationScreen()), (route) => false);
                               }
                             }
                           },
@@ -140,7 +141,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pushNamed(context, '/register');
+                        // Navigator.pushNamed(context, '/register');
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen()));
                       },
                       child: const Text(
                         'Register',

@@ -1,7 +1,9 @@
+import 'package:baatu/screens/navigation_home_bar.dart';
 import 'package:flutter/material.dart';
 import '../../utils/app_styles.dart';
 
 class SuccessScreen extends StatelessWidget {
+  static const String routeName = '/success';
   const SuccessScreen({super.key});
 
   @override
@@ -41,7 +43,7 @@ class SuccessScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.pushNamedAndRemoveUntil(
                       context,
-                      '/home',
+                     HomeNavigationScreen.routeName,
                       (route) => false,
                     );
                   },

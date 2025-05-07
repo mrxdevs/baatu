@@ -2,6 +2,7 @@
     <application
         android:label="Baatu"
         android:name="${applicationName}"
+        usesCleartextTraffic="true"
         
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class VideosScreen extends StatelessWidget {
   const VideosScreen({super.key});
+  static const String routeName = '/videos_screen';
 
   @override
   Widget build(BuildContext context) {
