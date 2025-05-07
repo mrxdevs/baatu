@@ -6,13 +6,14 @@ import 'screens/splash_screen.dart';
 import 'utils/app_styles.dart';
 import 'services/auth_service.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await FirebaseAppCheck.instance.activate(
     androidProvider: true
         ? AndroidProvider.debug
-        : AndroidProvider.playIntegrity
+        : AndroidProvider.playIntegrity,
+   appleProvider: AppleProvider.debug
   );
   runApp(
     MultiProvider(
