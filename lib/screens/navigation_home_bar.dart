@@ -1,8 +1,9 @@
+import 'package:baatu/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:baatu/screens/sections/words_screen.dart';
 import 'package:baatu/screens/sections/videos_screen.dart';
 import 'package:baatu/screens/sections/music_screen.dart';
-import 'package:baatu/screens/sections/chat_screen.dart';
+import 'package:baatu/screens/chat_screen.dart';
 import 'package:baatu/screens/sections/grammar_screen.dart';
 import 'package:baatu/screens/settings_screen.dart';
 import 'package:baatu/screens/profile_screen.dart';

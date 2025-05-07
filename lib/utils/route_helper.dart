@@ -9,6 +9,7 @@ import 'package:baatu/screens/chat_screen.dart';
 import 'package:baatu/screens/navigation_home_bar.dart';
 import 'package:baatu/screens/news_screen.dart';
 import 'package:baatu/screens/profile_screen.dart';
+import 'package:baatu/screens/chat_screen.dart';
 import 'package:baatu/screens/sections/grammar_screen.dart';
 import 'package:baatu/screens/sections/music_screen.dart';
 import 'package:baatu/screens/sections/videos_screen.dart';
