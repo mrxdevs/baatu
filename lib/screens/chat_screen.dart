@@ -270,11 +270,15 @@ class _ChatScreenState extends State<ChatScreen> {
                     ],
                   ),
                 ),
-                Expanded(
-                  child: ListView(
+              
+                 Expanded(
+                  child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(20),
-                    children: _messages,
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      return _messages[index];
+                    },
                   ),
                 ),
                 // if (_isTyping)
