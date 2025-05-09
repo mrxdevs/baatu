@@ -1,6 +1,7 @@
 import 'package:baatu/secrete/api_keys.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/gemini_service.dart';
 import 'dart:math';
 
@@ -40,7 +41,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ApiKeys.googleApiKey, // Replace with your actual Gemini API key
     );
     _messages.addAll([
-      _buildBotMessage(
+      _buildBotMessage2(
         "What sport do you know?",
         const AssetImage('assets/images/bee.png'),
       ),
@@ -50,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
         const AssetImage('assets/images/user.png'),
       ),
       const SizedBox(height: 20),
-      _buildBotMessage(
+      _buildBotMessage2(
         "Have you ever been played any sport?",
         const AssetImage('assets/images/bee.png'),
       ),
@@ -60,7 +61,7 @@ class _ChatScreenState extends State<ChatScreen> {
         const AssetImage('assets/images/user.png'),
       ),
       const SizedBox(height: 20),
-      _buildBotMessage(
+      _buildBotMessage2(
         "What sport do you know?",
         const AssetImage('assets/images/bee.png'),
       ),
@@ -115,7 +116,7 @@ class _ChatScreenState extends State<ChatScreen> {
       // Show typing indicator and store its index
       setState(() {
         typingIndicatorIndex = _messages.length;
-        _messages.add(_buildBotMessage(
+        _messages.add(_buildBotMessage2(
           "Typing...",
           const AssetImage('assets/images/bee.png'),
         ));
@@ -160,7 +161,7 @@ class _ChatScreenState extends State<ChatScreen> {
             
             // Add the complete response at the same position
             _currentStreamedResponse = response;
-            _messages.insert(typingIndicatorIndex, _buildBotMessage(
+            _messages.insert(typingIndicatorIndex, _buildBotMessage2(
               _currentStreamedResponse,
               const AssetImage('assets/images/bee.png'),
             ));
@@ -173,10 +174,12 @@ class _ChatScreenState extends State<ChatScreen> {
             
             // Fallback: just add the message at the end
             _currentStreamedResponse = response;
-            _messages.add(_buildBotMessage(
-              _currentStreamedResponse,
-              const AssetImage('assets/images/bee.png'),
-            ));
+            // _messages.add(_buildBotMessage(
+            //   _currentStreamedResponse,
+            //   const AssetImage('assets/images/bee.png'),
+            // ));
+
+            _buildBotMessage2(message, const AssetImage('assets/images/bee.png'),);
             _messages.add(const SizedBox(height: 20));
           }
           _isTyping = false;
@@ -353,7 +356,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildBotMessage(String message, ImageProvider avatarImage) {
+  Widget _buildBotMessage_(String message, ImageProvider avatarImage) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -388,11 +391,57 @@ class _ChatScreenState extends State<ChatScreen> {
                 fontSize: 16,
               ),
             ),
+          //          child:   Markdown(
+          //           shrinkWrap: true,
+          //                 data: message,
+          //                 // styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+          //                 styleSheet: MarkdownStyleSheet(),
+          //               )
           ),
         ),
         const SizedBox(width: 50),
       ],
     );
+  }
+
+
+  _buildBotMessage2(String message, ImageProvider avatarImage) {
+    return 
+                Stack(
+                  children: [
+                    Container(
+                        margin: const EdgeInsets.only(right: 50, left: 50),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8E7F8),
+                                  border: Border.all(
+                    color: const Color(0xFF8E4585).withOpacity(0.2),
+                    width: 1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                                  ],
+                                ),
+                      child: Markdown(
+                        // controller: _scrollController,
+                          shrinkWrap: true,
+                                data: message,
+                                // styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+                                styleSheet: MarkdownStyleSheet(),
+                              ),
+                    ),
+                 
+                 CircleAvatar(
+          radius: 20,
+          backgroundImage: avatarImage,
+          backgroundColor: Colors.transparent,
+        ),
+        ],
+                );
   }
 
   Widget _buildUserMessage(String message, ImageProvider avatarImage) {
