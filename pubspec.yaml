@@ -99,4 +99,5 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/lottie/
     # - assets/images/logo.png

@@ -1,3 +1,5 @@
+import 'package:baatu/methods/lottie_decoder.dart';
+import 'package:baatu/utils/animation_dir.dart';
 import 'package:baatu/utils/get_package_details.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
@@ -212,10 +214,11 @@ class _SplashScreenState extends State<SplashScreen>
 
             // Loading indicator
 
-            Lottie.network(
-                'https://lottie.host/fff20044-d168-434a-a997-75c421d58c1c/jsum7WdzLG.lottie',
-                width: 100,
-                height: 100,
+            Lottie.asset(AnimationDir.loadingAnimationLottie,
+                width: MediaQuery.sizeOf(context).width > 600
+                    ? 300
+                    : MediaQuery.sizeOf(context).width - 100,
+                decoder: MyLottieDecoder.customDecoder,
                 errorBuilder: (context, error, stackTrace) => AnimatedBuilder(
                       animation: _controller,
                       builder: (context, child) {
