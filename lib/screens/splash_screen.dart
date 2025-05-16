@@ -1,4 +1,6 @@
+import 'package:baatu/utils/get_package_details.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../services/auth_service.dart';
@@ -14,7 +16,8 @@ class SplashScreen extends StatefulWidget {
   static const routeName = '/splash_screen';
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _logoRotation;
   late Animation<double> _logoSize;
@@ -25,13 +28,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize animation controller
     _controller = AnimationController(
       duration: const Duration(seconds: 3),
       vsync: this,
     );
-    
+
     // Create animations
     _logoRotation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
       CurvedAnimation(
@@ -39,38 +42,39 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
       ),
     );
-    
+
     _logoSize = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.0, 0.5, curve: Curves.elasticOut),
       ),
     );
-    
+
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.5, 0.8, curve: Curves.easeIn),
       ),
     );
-    
+
     _taglineOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.7, 1.0, curve: Curves.easeIn),
       ),
     );
-    
-    _taglineSlide = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
+
+    _taglineSlide =
+        Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.7, 1.0, curve: Curves.easeOutCubic),
       ),
     );
-    
+
     // Start animation
     _controller.forward();
-    
+
     // Check authentication after animation completes
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -88,19 +92,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<void> _checkAuthentication() async {
     // Add a small delay after animation completes
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     if (!mounted) return;
-    
+
     final authService = Provider.of<AuthService>(context, listen: false);
     final isAuthenticated = await authService.validateUser();
-    
+
     if (!mounted) return;
-    
+
     // Navigate to the appropriate screen based on authentication status
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (context) => isAuthenticated 
-            ? const HomeNavigationScreen() 
+        builder: (context) => isAuthenticated
+            ? const HomeNavigationScreen()
             : const LoginScreen(),
       ),
     );
@@ -126,15 +130,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       'assets/images/bee.png',
                       width: 150,
                       height: 150,
-                      errorBuilder: (context, error, stackTrace) => 
-                        const Icon(Icons.language, size: 150, color: Colors.white),
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.language,
+                          size: 150,
+                          color: Colors.white),
                     ),
                   ),
                 );
               },
             ),
             const SizedBox(height: 24),
-            
+
             // Animated app name with creative styling
             AnimatedBuilder(
               animation: _textOpacity,
@@ -171,7 +177,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 );
               },
             ),
-            
+
             // Animated tagline
             AnimatedBuilder(
               animation: _taglineOpacity,
@@ -181,7 +187,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   child: SlideTransition(
                     position: _taglineSlide,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
@@ -200,22 +207,27 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 );
               },
             ),
-            
-            const SizedBox(height: 48),
-            
+
+            const SizedBox(height: 58),
+
             // Loading indicator
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return Opacity(
-                  opacity: _controller.value > 0.8 ? 1.0 : 0.0,
-                  child: const CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ),
-                );
-              },
-            ),
+
+            Lottie.network(
+                'https://lottie.host/fff20044-d168-434a-a997-75c421d58c1c/jsum7WdzLG.lottie',
+                width: 100,
+                height: 100,
+                errorBuilder: (context, error, stackTrace) => AnimatedBuilder(
+                      animation: _controller,
+                      builder: (context, child) {
+                        return Opacity(
+                          opacity: _controller.value > 0.8 ? 1.0 : 0.0,
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        );
+                      },
+                    )),
           ],
         ),
       ),

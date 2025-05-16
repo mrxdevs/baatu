@@ -3,6 +3,7 @@
         android:label="Baatu"
         android:name="${applicationName}"
         usesCleartextTraffic="true"
+        android:enableOnBackInvokedCallback="true"
         
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -7,17 +7,16 @@ class MarkdownFormatterScreen extends StatefulWidget {
   const MarkdownFormatterScreen({super.key});
 
   @override
-  State<MarkdownFormatterScreen> createState() => _MarkdownFormatterScreenState();
+  State<MarkdownFormatterScreen> createState() =>
+      _MarkdownFormatterScreenState();
 }
 
 class _MarkdownFormatterScreenState extends State<MarkdownFormatterScreen> {
-  final TextEditingController _markdownInputController = TextEditingController();
-  String _renderedMarkdown = '';
+  final TextEditingController _markdownInputController =
+      TextEditingController();
 
   void _convertMarkdown() {
-    setState(() {
-      _renderedMarkdown = _markdownInputController.text;
-    });
+    setState(() {});
   }
 
   @override
@@ -67,12 +66,12 @@ class _MarkdownFormatterScreenState extends State<MarkdownFormatterScreen> {
                   borderRadius: BorderRadius.circular(4.0),
                 ),
                 child: SingleChildScrollView(
-                  // child: Markdown(
-                  //   data: _renderedMarkdown,
-                  //   styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)), // Add this line
-                  //   // Any other parameters for Markdown widget would go here
-                  // ),
-                ),
+                    // child: Markdown(
+                    //   data: _renderedMarkdown,
+                    //   styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)), // Add this line
+                    //   // Any other parameters for Markdown widget would go here
+                    // ),
+                    ),
               ),
             ),
           ],
