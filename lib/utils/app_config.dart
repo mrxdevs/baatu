@@ -1,5 +1,5 @@
 class AppConfig {
-  static AppMode appMode = AppMode.DEV;
+  static AppMode appMode = AppMode.PROD;
 }
 
 enum AppMode { DEV, PROD, TEST }

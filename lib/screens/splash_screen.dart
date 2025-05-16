@@ -1,6 +1,5 @@
 import 'package:baatu/methods/lottie_decoder.dart';
 import 'package:baatu/utils/animation_dir.dart';
-import 'package:baatu/utils/get_package_details.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
