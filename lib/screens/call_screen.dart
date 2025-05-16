@@ -11,6 +11,7 @@ class CallScreen extends StatefulWidget {
 
   @override
   State<CallScreen> createState() => _CallScreenState();
+  static const String routeName = '/call_screen';
 }
 
 class _CallScreenState extends State<CallScreen> {

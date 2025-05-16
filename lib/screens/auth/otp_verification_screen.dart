@@ -6,6 +6,7 @@ class OtpVerificationScreen extends StatefulWidget {
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  static const String routeName = '/otp_verification';
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {

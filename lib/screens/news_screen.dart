@@ -5,6 +5,7 @@ class NewsScreen extends StatefulWidget {
 
   @override
   State<NewsScreen> createState() => _NewsScreenState();
+  static const String routeName = '/news_screen';
 }
 
 class _NewsScreenState extends State<NewsScreen> {

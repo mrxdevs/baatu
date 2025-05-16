@@ -1,8 +1,8 @@
+import 'package:baatu/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:baatu/screens/sections/words_screen.dart';
 import 'package:baatu/screens/sections/videos_screen.dart';
 import 'package:baatu/screens/sections/music_screen.dart';
-import 'package:baatu/screens/sections/chat_screen.dart';
 import 'package:baatu/screens/sections/grammar_screen.dart';
 import 'package:baatu/screens/settings_screen.dart';
 import 'package:baatu/screens/profile_screen.dart';
@@ -14,6 +14,7 @@ class HomeNavigationScreen extends StatefulWidget {
 
   @override
   State<HomeNavigationScreen> createState() => _HomeNavigationScreenState();
+  static const String routeName = '/home_navigation';
 }
 
 class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
@@ -215,14 +216,13 @@ class HexagonPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint =
-        Paint()
-          ..color = borderColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = borderWidth;
+    final Paint paint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth;
 
     final path = Path();
-    final double a = size.width / 2;
+    // final double a = size.width / 2;
     final double b = size.height / 2;
 
     path.moveTo(size.width, b);
@@ -244,7 +244,7 @@ class HexagonClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
-    final double a = size.width / 2;
+    // final double a = size.width / 2;
     final double b = size.height / 2;
 
     path.moveTo(size.width, b);
