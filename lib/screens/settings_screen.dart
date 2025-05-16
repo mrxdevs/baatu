@@ -1,6 +1,7 @@
 import 'package:baatu/screens/splash_screen.dart';
 import 'package:baatu/services/auth_service.dart';
 import 'package:baatu/testing_console/markdown_fomatter_screen.dart';
+import 'package:baatu/testing_console/testing_screen.dart';
 import 'package:baatu/utils/app_config.dart';
 import 'package:baatu/utils/get_package_details.dart';
 import 'package:flutter/material.dart';
@@ -130,13 +131,8 @@ class SettingsScreen extends StatelessWidget {
                             color: Colors.green,
                             showArrow: false,
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const MarkdownFormatterScreen(),
-                                ),
-                              );
+                              Navigator.pushNamed(
+                                  context, TestingScreen.routeName);
                             },
                           ),
                         SizedBox(height: 56),

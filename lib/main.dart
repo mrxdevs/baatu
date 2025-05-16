@@ -55,6 +55,17 @@ class _MyAppState extends State<MyApp> {
             primary: AppStyles.primaryColor,
           ),
           useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+              backgroundColor: AppStyles.primaryColor,
+              elevation: 0,
+              centerTitle: true,
+              titleTextStyle: TextStyle(
+                  color: Colors.white, fontSize: 20, fontFamily: "Poppins"
+                  // fontWeight: FontWeight.bold,
+                  ),
+              iconTheme: IconThemeData(
+                color: Colors.white,
+              )),
         ),
         initialRoute: SplashScreen.routeName,
         routes: RouteHelper.routes);
