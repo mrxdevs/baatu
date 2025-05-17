@@ -27,14 +27,15 @@ class _IndexPageState extends State<IndexPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Index Page'),
+        title: const Text('Video Call'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
         child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(children: <Widget>[
-              SizedBox(height: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: <Widget>[
+              const SizedBox(height: 40),
               Image.network('https://tinyurl.com/2p889y4k'),
               const SizedBox(height: 40),
               TextField(
@@ -42,30 +43,43 @@ class _IndexPageState extends State<IndexPage> {
                 decoration: InputDecoration(
                   errorText:
                       _validateError ? 'Channel name is mandatory' : null,
-                  border: UnderlineInputBorder(
+                  border: const UnderlineInputBorder(
                     borderSide: BorderSide(width: 1),
                   ),
                   hintText: 'Channel name',
                 ),
               ),
               RadioListTile(
-                  title: Text('Broadcaster'),
-                  value: ClientRoleType.clientRoleBroadcaster,
-                  groupValue: _role,
-                  onChanged: (ClientRoleType? value) {
+                title: const Text('Broadcaster'),
+                value: ClientRoleType.clientRoleBroadcaster,
+                groupValue: _role,
+                onChanged: (ClientRoleType? value) {
+                  setState(() {
                     _role = value;
-                    setState(() {});
-                  }),
+                  });
+                },
+              ),
               RadioListTile(
-                  title: Text('Audience'),
-                  value: ClientRoleType.clientRoleAudience,
-                  groupValue: _role,
-                  onChanged: (ClientRoleType? value) {
+                title: const Text('Audience'),
+                value: ClientRoleType.clientRoleAudience,
+                groupValue: _role,
+                onChanged: (ClientRoleType? value) {
+                  setState(() {
                     _role = value;
-                    setState(() {});
-                  }),
-              ElevatedButton(onPressed: _onJoin, child: Text('Join'))
-            ])),
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _onJoin,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text('Join'),
+              )
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -77,26 +91,28 @@ class _IndexPageState extends State<IndexPage> {
           : _validateError = false;
     });
 
-    //hadle permission
     if (_channelController.text.isNotEmpty) {
-      await _handlePermission(Permission.camera).then((value) async {
-        await _handlePermission(Permission.microphone);
-      });
+      // Handle permissions
+      await _handlePermission(Permission.camera);
+      await _handlePermission(Permission.microphone);
 
+      // Navigate to call screen
+      if (!mounted) return;
       await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VideoCallScreen(
-              chennelName: _channelController.text,
-              role: _role!,
-            ),
-          ));
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoCallScreen(
+            channelName: _channelController.text,
+            role: _role!,
+          ),
+        ),
+      );
     }
   }
 
-  //Pemission method
+  // Permission method
   Future<void> _handlePermission(Permission permission) async {
-    final result = permission.request();
-    log('$permission is ${result}');
+    final status = await permission.request();
+    log('$permission status: $status');
   }
 }
