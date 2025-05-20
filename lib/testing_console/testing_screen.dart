@@ -1,7 +1,11 @@
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:baatu/testing_console/audio_call/audio_call_screen.dart';
 import 'package:baatu/testing_console/markdown_fomatter_screen.dart';
 import 'package:baatu/testing_console/video_call/index.dart';
 import 'package:baatu/testing_console/video_call/video_call_screen.dart';
 import 'package:flutter/material.dart';
+
+import 'audio_call/audio_index_screen.dart';
 
 class TestingScreen extends StatefulWidget {
   const TestingScreen({super.key});
@@ -20,14 +24,25 @@ class _TestingScreenState extends State<TestingScreen> {
       'screen': const MarkdownFormatterScreen(),
     },
     {
-      'title': 'Agora Video Call',
+      'title': 'Video Call',
       'icon': Icons.video_call_outlined,
       'screen': const VideoCallScreen(),
     },
     {
-      'title': 'Call Indexing',
+      'title': 'Video Call Indexing',
       'icon': Icons.video_chat_outlined,
       'screen': const IndexPage()
+    },
+    {
+      'title': 'Audio Call',
+      'icon': Icons.call_outlined,
+      'screen': const AudioCallScreen(
+          channelName: "baatu", role: ClientRoleType.clientRoleBroadcaster),
+    },
+    {
+      'title': 'Audio Call Indexing',
+      'icon': Icons.spatial_audio_off_outlined,
+      'screen': const AudioIndexScreen()
     },
     // Add more testing options here
   ];
