@@ -16,6 +16,8 @@ import 'package:baatu/screens/sections/videos_screen.dart';
 import 'package:baatu/screens/sections/words_screen.dart';
 import 'package:baatu/screens/settings_screen.dart';
 import 'package:baatu/screens/splash_screen.dart';
+import 'package:baatu/testing_console/testing_screen.dart';
+import 'package:baatu/testing_console/video_call/video_call_screen.dart';
 import 'package:flutter/material.dart';
 
 class RouteHelper {
@@ -41,5 +43,9 @@ class RouteHelper {
           callingWith: "",
         ),
     ForgotPasswordScreen.routeName: (context) => const ForgotPasswordScreen(),
+
+    //All Testing Screens
+    TestingScreen.routeName: (context) => const TestingScreen(),
+    VideoCallScreen.routeName: (context) => const VideoCallScreen(),
   };
 }
