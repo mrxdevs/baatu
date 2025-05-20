@@ -25,7 +25,7 @@ Baatu is a comprehensive communication platform designed to connect users throug
 
 ## Features
 
-- **Login and Registration**: Secure authentication with user-friendly interfaces.
+- **Login and Registration**: Secure authentication with user-friendly interfaces..
 - **Content Sections**: Explore various topics including grammar, music, and travel.
 - **Interactive Navigation**: Easily navigate through different screens using the navigation bar.
 - **Real-time Messaging**: Connect with other users through instant messaging.
@@ -40,20 +40,37 @@ Baatu follows a modular architecture pattern to ensure maintainability, scalabil
 
 ## Screenshots
 
-![Splash Screen](screenshot/splash_screen.png)
-![Login Screen](screenshot/login_screen.png)
-![Register Screen](screenshot/register_screen.png)
-![Preference Screen](screenshot/preference_screen.png)
-![Forget Screen](screenshot/forget_screen.png)
-![Sucees Screen](screenshot/success_screen.png)
+## Screenshots
 
-![Home Screen](screenshot/home_screen.png)
-![Call Screen](screenshot/call_screen.png)
+| Authentication                                         | Account Management                                       | Main Features                                      | User Experience                                       |
+| ------------------------------------------------------ | -------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------- |
+| <img src="screenshot/splash_screen.png" width="200">   | <img src="screenshot/preference_screen.png" width="200"> | <img src="screenshot/home_screen.png" width="200"> | <img src="screenshot/lesson_screen.png" width="200">  |
+| <img src="screenshot/login_screen.png" width="200">    | <img src="screenshot/forget_screen.png" width="200">     | <img src="screenshot/call_screen.png" width="200"> | <img src="screenshot/profile_screen.png" width="200"> |
+| <img src="screenshot/register_screen.png" width="200"> | <img src="screenshot/success_screen.png" width="200">    | <img src="screenshot/chat_screen.png" width="200"> | <img src="screenshot/setting_screen.png" width="200"> |
 
-![Chat Screen](screenshot/chat_screen.png)
-![Lesson Screen](screenshot/lesson_screen.png)
-![Profile Screen](screenshot/profile_screen.png)
-![Setting Screen](screenshot/setting_screen.png)
+<!-- ### Account Management
+
+<div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center">
+  <img src="screenshot/preference_screen.png" width="250" alt="Preference Screen">
+  <img src="screenshot/forget_screen.png" width="250" alt="Forget Screen">
+  <img src="screenshot/success_screen.png" width="250" alt="Success Screen">
+</div>
+
+### Main Features
+
+<div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center">
+  <img src="screenshot/home_screen.png" width="250" alt="Home Screen">
+  <img src="screenshot/call_screen.png" width="250" alt="Call Screen">
+  <img src="screenshot/chat_screen.png" width="250" alt="Chat Screen">
+</div>
+
+### User Experience
+
+<div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center">
+  <img src="screenshot/lesson_screen.png" width="250" alt="Lesson Screen">
+  <img src="screenshot/profile_screen.png" width="250" alt="Profile Screen">
+  <img src="screenshot/setting_screen.png" width="250" alt="Setting Screen">
+</div> -->
 
 ## Technical Implementation
 
