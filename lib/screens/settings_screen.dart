@@ -753,10 +753,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'Chinese',
       'Japanese'
     ];
-  
+
     // Store the initially selected language to use in the dialog
     String dialogSelectedLanguage = selectedLanguage;
-  
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -787,7 +787,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       itemBuilder: (context, index) {
                         final language = languageOptions[index];
                         final isSelected = language == dialogSelectedLanguage;
-  
+
                         return GestureDetector(
                           onTap: () {
                             setState(() {
@@ -854,7 +854,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     // Show confirmation
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Language changed to $dialogSelectedLanguage'),
+                        content:
+                            Text('Language changed to $dialogSelectedLanguage'),
                         backgroundColor: const Color(0xFF8E4585),
                       ),
                     );
