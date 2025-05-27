@@ -1,3 +1,4 @@
+import 'package:baatu/model/user_details.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,6 +11,8 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:shimmer/shimmer.dart';
+
+import '../methods/print_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   static const String routeName = '/profile_screen';
@@ -27,12 +30,16 @@ class _ProfileScreenState extends State<ProfileScreen>
   late Animation<double> _animation;
 
   // User profile data
+
+  UserDetails _userDetails = UserDetails();
   String _displayName = '';
   String _email = '';
   String _profileImageUrl = '';
   bool _isLoading = true;
   bool _isEditing = false;
   File? _imageFile;
+
+  final _currentUser = FirebaseAuth.instance.currentUser;
   final TextEditingController _nameController = TextEditingController();
 
   // User stats
@@ -55,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     _databaseService =
         DatabaseService(uid: FirebaseAuth.instance.currentUser?.uid);
     _loadUserData();
-
+    _assignUserDataToUserDetails();
     // Setup animation
     _animationController = AnimationController(
       vsync: this,
@@ -77,25 +84,47 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
+  //Assign data to user details
+  void _assignUserDataToUserDetails() {
+    _userDetails.name = _currentUser?.displayName ?? '';
+    _userDetails.email = _currentUser?.email ?? '';
+    _userDetails.profileImage = _currentUser?.photoURL ?? '';
+    _userDetails.bio = _currentUser?.displayName ?? '';
+    _userDetails.phoneNumber = _currentUser?.phoneNumber ?? '';
+    _userDetails.uid = _currentUser?.uid ?? '';
+    _userDetails.isEmailVerified = _currentUser?.emailVerified ?? false;
+    _userDetails.location = '';
+    _userDetails.website = '';
+    _userDetails.gender = '';
+    _userDetails.dob = '';
+    _userDetails.profession = '';
+    _userDetails.interests = [];
+    _userDetails.education = '';
+
+    setState(() {});
+  }
+
   Future<void> _loadUserData() async {
-    print('Loading user data...');
+    printmsg('Loading user data...');
     setState(() {
       _isLoading = true;
     });
 
     try {
       // Get user profile data
+      printmsg("Current user: $_currentUser");
+      printmsg("Auth service user: ${_authService.user}");
       if (_authService.user != null) {
-        print('Current user ID: ${_authService.user!.uid}');
+        printmsg('Current user ID: ${_authService.user!.uid}');
         DocumentSnapshot userData = await FirebaseFirestore.instance
             .collection('users')
             .doc(_authService.user!.uid)
             .get();
 
-        print('Document exists: ${userData.exists}');
+        printmsg('Document exists: ${userData.exists}');
         if (userData.exists) {
           Map<String, dynamic> data = userData.data() as Map<String, dynamic>;
-          print('Retrieved user data: $data');
+          printmsg('Retrieved user data: $data');
 
           setState(() {
             _displayName = data['displayName'] ??
@@ -105,22 +134,23 @@ class _ProfileScreenState extends State<ProfileScreen>
             _profileImageUrl = data['profileImageUrl'] ?? '';
             _nameController.text = _displayName;
 
-            print('Display name set to: $_displayName');
-            print('Email set to: $_email');
-            print('Profile image URL: $_profileImageUrl');
+            printmsg('Display name set to: $_displayName');
+            printmsg('Email set to: $_email');
+            printmsg('Profile image URL: $_profileImageUrl');
 
             // Load progress stats if available
             if (data.containsKey('progressStats')) {
               Map<String, dynamic> stats = data['progressStats'];
-              print('Progress stats found: $stats');
+              printmsg('Progress stats found: $stats');
               stats.forEach((key, value) {
                 if (_progressStats.containsKey(key)) {
                   _progressStats[key] = value.toDouble();
-                  print('Updated progress stat $key: ${_progressStats[key]}');
+                  printmsg(
+                      'Updated progress stat $key: ${_progressStats[key]}');
                 }
               });
             } else {
-              print('No progress stats found in user data');
+              printmsg('No progress stats found in user data');
             }
 
             // Load other stats
@@ -129,25 +159,25 @@ class _ProfileScreenState extends State<ProfileScreen>
             _weaknesses = data['weaknesses'] ?? _weaknesses;
             _totalPoints = data['totalPoints']?.toString() ?? _totalPoints;
 
-            print('Level: $_level');
-            print('Strengths: $_strengths');
-            print('Weaknesses: $_weaknesses');
-            print('Total Points: $_totalPoints');
+            printmsg('Level: $_level');
+            printmsg('Strengths: $_strengths');
+            printmsg('Weaknesses: $_weaknesses');
+            printmsg('Total Points: $_totalPoints');
           });
         } else {
-          print('No user document found');
+          printmsg('No user document found');
         }
       } else {
-        print('No authenticated user found');
+        printmsg('No authenticated user found');
       }
     } catch (e, stackTrace) {
-      print('Error loading user data: $e');
-      print('Stack trace: $stackTrace');
+      printmsg('Error loading user data: $e');
+      printmsg('Stack trace: $stackTrace');
     } finally {
       setState(() {
         _isLoading = false;
       });
-      print('Finished loading user data. Loading state: $_isLoading');
+      printmsg('Finished loading user data. Loading state: $_isLoading');
     }
   }
 
@@ -187,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         const SnackBar(content: Text('Profile updated successfully')),
       );
     } catch (e) {
-      print('Error updating profile: $e');
+      printmsg('Error updating profile: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error updating profile: ${e.toString()}')),
       );
@@ -215,7 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       String downloadUrl = await storageRef.getDownloadURL();
       return downloadUrl;
     } catch (e) {
-      print('Error uploading image: $e');
+      printmsg('Error uploading image: $e');
       rethrow;
     }
   }
@@ -236,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         });
       }
     } on PlatformException catch (e) {
-      print('Failed to pick image: $e');
+      printmsg('Failed to pick image: $e');
     }
   }
 
@@ -450,7 +480,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 GestureDetector(
-                                  onTap: _isEditing ? _pickImage : null,
+                                  onTap: _pickImage,
                                   child: Stack(
                                     children: [
                                       Container(
@@ -490,63 +520,73 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                     ),
                                         ),
                                       ),
-                                      if (_isEditing)
-                                        Positioned(
-                                          bottom: 0,
-                                          right: 0,
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: const BoxDecoration(
-                                              color: AppStyles.primaryColor,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.camera_alt,
-                                              color: Colors.white,
-                                              size: 20,
-                                            ),
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: AppStyles.primaryColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.camera_alt,
+                                            color: Colors.white,
+                                            size: 20,
                                           ),
                                         ),
+                                      ),
                                     ],
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                _isEditing
-                                    ? Container(
-                                        width: 200,
-                                        child: TextField(
-                                          controller: _nameController,
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppStyles.primaryColor,
-                                          ),
-                                          decoration: const InputDecoration(
-                                            hintText: 'Enter your name',
-                                            border: UnderlineInputBorder(),
-                                            focusedBorder: UnderlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color: AppStyles.primaryColor,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                    : Text(
-                                        _displayName,
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppStyles.primaryColor,
-                                        ),
-                                      ),
                                 Text(
-                                  _email,
+                                  _currentUser?.displayName ?? "",
                                   style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppStyles.primaryColor,
                                   ),
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      _currentUser?.email ?? "",
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            _currentUser?.emailVerified ?? false
+                                                ? Colors.green.withOpacity(0.2)
+                                                : Colors.red.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _currentUser?.emailVerified ?? false
+                                                ? Icons.verified
+                                                : Icons.warning,
+                                            size: 14,
+                                            color:
+                                                _currentUser?.emailVerified ??
+                                                        false
+                                                    ? Colors.green
+                                                    : Colors.red,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
