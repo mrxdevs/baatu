@@ -1,15 +1,26 @@
 import 'package:baatu/screens/splash_screen.dart';
 import 'package:baatu/services/auth_service.dart';
-import 'package:baatu/testing_console/markdown_fomatter_screen.dart';
 import 'package:baatu/testing_console/testing_screen.dart';
 import 'package:baatu/utils/app_config.dart';
 import 'package:baatu/utils/app_styles.dart';
 import 'package:baatu/utils/get_package_details.dart';
 import 'package:flutter/material.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   static const String routeName = '/settings_screen';
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  // State variables to store settings
+  String reminderTime = '17:00';
+  bool isReminderEnabled = true;
+  String selectedLanguage = 'English';
+  int lessonDuration = 20;
+  String subscriptionPlan = 'Premium';
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +91,7 @@ class SettingsScreen extends StatelessWidget {
                         _buildSettingItem(
                           icon: Icons.notifications_outlined,
                           title: 'Reminder',
-                          value: '17:00',
+                          value: isReminderEnabled ? reminderTime : 'Off',
                           color: const Color(0xFF8E4585),
                           onTap: () {
                             _showReminderDialog(context);
@@ -89,13 +100,17 @@ class SettingsScreen extends StatelessWidget {
                         _buildSettingItem(
                           icon: Icons.language_outlined,
                           title: 'Language',
-                          value: 'English',
+                          value: selectedLanguage,
                           color: const Color(0xFF8E4585),
+                          onTap: () {
+                            _showLanguageDialog(context);
+                            // Remove the empty setState call as it's not needed
+                          },
                         ),
                         _buildSettingItem(
                           icon: Icons.timer_outlined,
                           title: 'Lesson duration',
-                          value: '20 minutes',
+                          value: '$lessonDuration minutes',
                           color: const Color(0xFF8E4585),
                           onTap: () {
                             _showLessonDurationDialog(context);
@@ -114,7 +129,7 @@ class SettingsScreen extends StatelessWidget {
                         _buildSettingItem(
                           icon: Icons.workspace_premium_outlined,
                           title: 'Join',
-                          value: 'Premium',
+                          value: subscriptionPlan,
                           color: const Color(0xFF8E4585),
                           onTap: () {
                             _showSubscriptionOptions(context);
@@ -240,10 +255,10 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // Lesson Duration Dialog
+  // Updated Lesson Duration Dialog
   void _showLessonDurationDialog(BuildContext context) {
     final List<int> durationOptions = [10, 15, 20, 25, 30, 45, 60];
-    int selectedDuration = 20; // Default value
+    int selectedDuration = lessonDuration; // Use the state variable
 
     showDialog(
       context: context,
@@ -334,8 +349,10 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    // Save the selected duration
-                    // You would typically save this to your app's settings/preferences
+                    // Update the state variable
+                    this.setState(() {
+                      lessonDuration = selectedDuration;
+                    });
                     Navigator.pop(context);
                     // Show confirmation
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -362,10 +379,13 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // Reminder Dialog
+  // Updated Reminder Dialog
   void _showReminderDialog(BuildContext context) {
-    TimeOfDay selectedTime = TimeOfDay(hour: 17, minute: 0); // Default 5:00 PM
-    bool isReminderEnabled = true;
+    TimeOfDay selectedTime = TimeOfDay(
+      hour: int.parse(reminderTime.split(':')[0]),
+      minute: int.parse(reminderTime.split(':')[1]),
+    );
+    bool dialogReminderEnabled = isReminderEnabled;
 
     showDialog(
       context: context,
@@ -385,16 +405,16 @@ class SettingsScreen extends StatelessWidget {
                 children: [
                   SwitchListTile(
                     title: const Text('Enable daily reminder'),
-                    value: isReminderEnabled,
+                    value: dialogReminderEnabled,
                     activeColor: const Color(0xFF8E4585),
                     onChanged: (value) {
                       setState(() {
-                        isReminderEnabled = value;
+                        dialogReminderEnabled = value;
                       });
                     },
                   ),
                   const SizedBox(height: 20),
-                  if (isReminderEnabled)
+                  if (dialogReminderEnabled)
                     Column(
                       children: [
                         const Text(
@@ -470,13 +490,17 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    // Save the reminder settings
-                    // You would typically save this to your app's settings and set up a notification
+                    // Update the state variables
+                    this.setState(() {
+                      isReminderEnabled = dialogReminderEnabled;
+                      reminderTime =
+                          '${selectedTime.hour}:${selectedTime.minute.toString().padLeft(2, '0')}';
+                    });
                     Navigator.pop(context);
                     // Show confirmation
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(isReminderEnabled
+                        content: Text(dialogReminderEnabled
                             ? 'Daily reminder set for ${selectedTime.hour}:${selectedTime.minute.toString().padLeft(2, '0')}'
                             : 'Daily reminder disabled'),
                         backgroundColor: const Color(0xFF8E4585),
@@ -499,7 +523,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // Subscription Options Dialog
+  // Updated Subscription Options Dialog
   void _showSubscriptionOptions(BuildContext context) {
     final List<Map<String, dynamic>> subscriptionPlans = [
       {
@@ -525,7 +549,7 @@ class SettingsScreen extends StatelessWidget {
       },
     ];
 
-    int selectedPlanIndex = 1; // Default to annual plan
+    int selectedPlanIndex = 1; // Default to monthly plan
 
     showDialog(
       context: context,
@@ -668,7 +692,7 @@ class SettingsScreen extends StatelessWidget {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Process subscription purchase
+                          // Update the state variable
                           final selectedPlan =
                               subscriptionPlans[selectedPlanIndex];
                           Navigator.pop(context);
@@ -710,6 +734,140 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+// Add this method to your _SettingsScreenState class
+
+// Language Selection Dialog
+  void _showLanguageDialog(BuildContext context) {
+    final List<String> languageOptions = [
+      'English',
+      'Spanish',
+      'French',
+      'German',
+      'Chinese',
+      'Japanese'
+    ];
+  
+    // Store the initially selected language to use in the dialog
+    String dialogSelectedLanguage = selectedLanguage;
+  
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: AppStyles.backgroundColor,
+              title: const Text(
+                'Select Language',
+                style: TextStyle(
+                  color: Color(0xFF8E4585),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Choose your preferred language:',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    height: 200,
+                    width: double.maxFinite,
+                    child: ListView.builder(
+                      itemCount: languageOptions.length,
+                      itemBuilder: (context, index) {
+                        final language = languageOptions[index];
+                        final isSelected = language == dialogSelectedLanguage;
+  
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              dialogSelectedLanguage = language;
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF8E4585).withOpacity(0.1)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppStyles.backgroundColor,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  language,
+                                  style: TextStyle(
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? const Color(0xFF8E4585)
+                                        : Colors.black87,
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Color(0xFF8E4585),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Update the parent widget's state
+                    this.setState(() {
+                      selectedLanguage = dialogSelectedLanguage;
+                    });
+                    Navigator.pop(context);
+                    // Show confirmation
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Language changed to $dialogSelectedLanguage'),
+                        backgroundColor: const Color(0xFF8E4585),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8E4585),
+                  ),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
             );
           },
         );
