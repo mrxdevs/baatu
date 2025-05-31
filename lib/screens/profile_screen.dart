@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../methods/print_helper.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   static const String routeName = '/profile_screen';
@@ -376,12 +377,12 @@ class _ProfileScreenState extends State<ProfileScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFD700).withOpacity(0.2),
+                  color: AppStyles.primaryColor.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: const Color(0xFFFFD700),
+                  color: AppStyles.primaryColor,
                   size: 24,
                 ),
               ),
@@ -489,7 +490,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
                                           border: Border.all(
-                                            color: const Color(0xFFFFD700),
+                                            color: AppStyles.primaryColor,
                                             width: 3,
                                           ),
                                         ),
@@ -684,17 +685,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       _buildProgressIndicator(
                                           'videos',
                                           _progressStats['videos']!,
-                                          const Color(0xFFFFD700)),
+                                          AppStyles.secondaryColor),
                                       const SizedBox(width: 12),
                                       _buildProgressIndicator(
                                           'grammar',
                                           _progressStats['grammar']!,
-                                          const Color(0xFFFFD700)),
+                                          AppStyles.primaryColor),
                                       const SizedBox(width: 12),
                                       _buildProgressIndicator(
                                           'chat',
                                           _progressStats['chat']!,
-                                          const Color(0xFFFFD700)),
+                                          AppStyles.secondaryColor),
                                       const SizedBox(width: 12),
                                       _buildProgressIndicator(
                                           'music',
@@ -783,6 +784,29 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/edit_profile_screen',
+                                  arguments: _userDetails,
+                                ).then((updatedUserDetails) {
+                                  if (updatedUserDetails != null) {
+                                    setState(() {
+                                      _userDetails =
+                                          updatedUserDetails as UserDetails;
+                                      _loadUserData();
+                                    });
+                                  }
+                                });
+                              },
+                              style: AppStyles.primaryButtonStyle,
+                              child: const Text('Edit Profile Details'),
                             ),
                           ),
                           const SizedBox(height: 80),
