@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'utils/app_styles.dart';
 import 'services/auth_service.dart';
+import 'screens/share_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +69,9 @@ class _MyAppState extends State<MyApp> {
               )),
         ),
         initialRoute: SplashScreen.routeName,
-        routes: RouteHelper.routes);
+        routes: {
+          ...RouteHelper.routes,
+          ShareScreen.routeName: (context) => const ShareScreen(),
+        });
   }
 }

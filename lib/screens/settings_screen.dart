@@ -1,14 +1,26 @@
 import 'package:baatu/screens/splash_screen.dart';
 import 'package:baatu/services/auth_service.dart';
-import 'package:baatu/testing_console/markdown_fomatter_screen.dart';
 import 'package:baatu/testing_console/testing_screen.dart';
 import 'package:baatu/utils/app_config.dart';
+import 'package:baatu/utils/app_styles.dart';
 import 'package:baatu/utils/get_package_details.dart';
 import 'package:flutter/material.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   static const String routeName = '/settings_screen';
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  // State variables to store settings
+  String reminderTime = '17:00';
+  bool isReminderEnabled = true;
+  String selectedLanguage = 'English';
+  int lessonDuration = 20;
+  String subscriptionPlan = 'Premium';
 
   @override
   Widget build(BuildContext context) {
@@ -79,20 +91,30 @@ class SettingsScreen extends StatelessWidget {
                         _buildSettingItem(
                           icon: Icons.notifications_outlined,
                           title: 'Reminder',
-                          value: '17:00',
+                          value: isReminderEnabled ? reminderTime : 'Off',
                           color: const Color(0xFF8E4585),
+                          onTap: () {
+                            _showReminderDialog(context);
+                          },
                         ),
                         _buildSettingItem(
                           icon: Icons.language_outlined,
                           title: 'Language',
-                          value: 'English',
+                          value: selectedLanguage,
                           color: const Color(0xFF8E4585),
+                          onTap: () {
+                            _showLanguageDialog(context);
+                            // Remove the empty setState call as it's not needed
+                          },
                         ),
                         _buildSettingItem(
                           icon: Icons.timer_outlined,
                           title: 'Lesson duration',
-                          value: '20 minutes',
+                          value: '$lessonDuration minutes',
                           color: const Color(0xFF8E4585),
+                          onTap: () {
+                            _showLessonDurationDialog(context);
+                          },
                         ),
                         const SizedBox(height: 24),
                         const Text(
@@ -105,10 +127,13 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         _buildSettingItem(
-                          icon: Icons.account_balance_wallet_outlined,
-                          title: 'Checkout',
-                          value: '150 \$',
+                          icon: Icons.workspace_premium_outlined,
+                          title: 'Join',
+                          value: subscriptionPlan,
                           color: const Color(0xFF8E4585),
+                          onTap: () {
+                            _showSubscriptionOptions(context);
+                          },
                         ),
                         _buildSettingItem(
                             icon: Icons.logout_outlined,
@@ -227,6 +252,627 @@ class SettingsScreen extends StatelessWidget {
               : null,
         ),
       ),
+    );
+  }
+
+  // Updated Lesson Duration Dialog
+  void _showLessonDurationDialog(BuildContext context) {
+    final List<int> durationOptions = [10, 15, 20, 25, 30, 45, 60];
+    int selectedDuration = lessonDuration; // Use the state variable
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: AppStyles.backgroundColor,
+              title: const Text(
+                'Set Daily Lesson Duration',
+                style: TextStyle(
+                  color: Color(0xFF8E4585),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Choose how much time you want to spend on lessons each day:',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    height: 200,
+                    width: double.maxFinite,
+                    child: ListView.builder(
+                      itemCount: durationOptions.length,
+                      itemBuilder: (context, index) {
+                        final duration = durationOptions[index];
+                        final isSelected = duration == selectedDuration;
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              selectedDuration = duration;
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF8E4585).withOpacity(0.1)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppStyles.backgroundColor,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '$duration minutes',
+                                  style: TextStyle(
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? const Color(0xFF8E4585)
+                                        : Colors.black87,
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Color(0xFF8E4585),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Update the state variable
+                    this.setState(() {
+                      lessonDuration = selectedDuration;
+                    });
+                    Navigator.pop(context);
+                    // Show confirmation
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            'Daily lesson duration set to $selectedDuration minutes'),
+                        backgroundColor: const Color(0xFF8E4585),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8E4585),
+                  ),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Updated Reminder Dialog
+  void _showReminderDialog(BuildContext context) {
+    TimeOfDay selectedTime = TimeOfDay(
+      hour: int.parse(reminderTime.split(':')[0]),
+      minute: int.parse(reminderTime.split(':')[1]),
+    );
+    bool dialogReminderEnabled = isReminderEnabled;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text(
+                'Set Daily Reminder',
+                style: TextStyle(
+                  color: Color(0xFF8E4585),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Enable daily reminder'),
+                    value: dialogReminderEnabled,
+                    activeColor: const Color(0xFF8E4585),
+                    onChanged: (value) {
+                      setState(() {
+                        dialogReminderEnabled = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  if (dialogReminderEnabled)
+                    Column(
+                      children: [
+                        const Text(
+                          'Choose when you want to be reminded:',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: () async {
+                            final TimeOfDay? pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: selectedTime,
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.light(
+                                      primary: Color(0xFF8E4585),
+                                      onPrimary: Colors.white,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+
+                            if (pickedTime != null) {
+                              setState(() {
+                                selectedTime = pickedTime;
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 15, horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFF8E4585),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${selectedTime.hour}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF8E4585),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.access_time,
+                                  color: Color(0xFF8E4585),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Update the state variables
+                    this.setState(() {
+                      isReminderEnabled = dialogReminderEnabled;
+                      reminderTime =
+                          '${selectedTime.hour}:${selectedTime.minute.toString().padLeft(2, '0')}';
+                    });
+                    Navigator.pop(context);
+                    // Show confirmation
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(dialogReminderEnabled
+                            ? 'Daily reminder set for ${selectedTime.hour}:${selectedTime.minute.toString().padLeft(2, '0')}'
+                            : 'Daily reminder disabled'),
+                        backgroundColor: const Color(0xFF8E4585),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8E4585),
+                  ),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Updated Subscription Options Dialog
+  void _showSubscriptionOptions(BuildContext context) {
+    final List<Map<String, dynamic>> subscriptionPlans = [
+      {
+        'title': 'Daily Premium',
+        'price': '₹5',
+        'description': 'Full access to all premium features for one day',
+        'duration': '1 day',
+        'isPopular': false,
+      },
+      {
+        'title': 'Monthly Premium',
+        'price': '₹119',
+        'description': 'Full access to all premium features for one month',
+        'duration': '1 month',
+        'isPopular': true,
+      },
+      {
+        'title': 'Annual Premium',
+        'price': '₹11199',
+        'description': 'Save upto 25% with annual billing',
+        'duration': '12 months',
+        'isPopular': false,
+      },
+    ];
+
+    int selectedPlanIndex = 1; // Default to monthly plan
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: AppStyles.backgroundColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Choose Your Subscription',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8E4585),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Unlock all premium features and content',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.5,
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: subscriptionPlans.length,
+                        itemBuilder: (context, index) {
+                          final plan = subscriptionPlans[index];
+                          final isSelected = index == selectedPlanIndex;
+
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                selectedPlanIndex = index;
+                              });
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFF8E4585)
+                                      : Colors.grey.withOpacity(0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        plan['title'],
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: isSelected
+                                              ? const Color(0xFF8E4585)
+                                              : Colors.black87,
+                                        ),
+                                      ),
+                                      if (plan['isPopular'])
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF8E4585),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                          ),
+                                          child: const Text(
+                                            'POPULAR',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    plan['price'],
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? const Color(0xFF8E4585)
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    plan['description'],
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Duration: ${plan['duration']}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: isSelected
+                                          ? const Color(0xFF8E4585)
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Update the state variable
+                          final selectedPlan =
+                              subscriptionPlans[selectedPlanIndex];
+                          Navigator.pop(context);
+                          // Show confirmation
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Subscribing to ${selectedPlan['title']} plan'),
+                              backgroundColor: const Color(0xFF8E4585),
+                            ),
+                          );
+                          // Here you would typically integrate with your payment processor
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF8E4585),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          'Subscribe Now',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+// Add this method to your _SettingsScreenState class
+
+// Language Selection Dialog
+  void _showLanguageDialog(BuildContext context) {
+    final List<String> languageOptions = [
+      'English',
+      'Spanish',
+      'French',
+      'German',
+      'Chinese',
+      'Japanese'
+    ];
+
+    // Store the initially selected language to use in the dialog
+    String dialogSelectedLanguage = selectedLanguage;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: AppStyles.backgroundColor,
+              title: const Text(
+                'Select Language',
+                style: TextStyle(
+                  color: Color(0xFF8E4585),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Choose your preferred language:',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    height: 200,
+                    width: double.maxFinite,
+                    child: ListView.builder(
+                      itemCount: languageOptions.length,
+                      itemBuilder: (context, index) {
+                        final language = languageOptions[index];
+                        final isSelected = language == dialogSelectedLanguage;
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              dialogSelectedLanguage = language;
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF8E4585).withOpacity(0.1)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppStyles.backgroundColor,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  language,
+                                  style: TextStyle(
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? const Color(0xFF8E4585)
+                                        : Colors.black87,
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Color(0xFF8E4585),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Update the parent widget's state
+                    this.setState(() {
+                      selectedLanguage = dialogSelectedLanguage;
+                    });
+                    Navigator.pop(context);
+                    // Show confirmation
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content:
+                            Text('Language changed to $dialogSelectedLanguage'),
+                        backgroundColor: const Color(0xFF8E4585),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8E4585),
+                  ),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

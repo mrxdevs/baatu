@@ -370,32 +370,37 @@ class _ChatConnectionScreenState extends State<ChatConnectionScreen> {
   }
 
   Widget _buildShareButton(Color themeColor) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: themeColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: themeColor.withOpacity(0.3), width: 1),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.share,
-            color: Colors.white,
-            size: 20,
-          ),
-          SizedBox(width: 8),
-          Text(
-            'Share with your family and friends',
-            style: TextStyle(
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, '/share_screen');
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: themeColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: themeColor.withOpacity(0.3), width: 1),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.share,
               color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+              size: 20,
             ),
-          ),
-        ],
+            SizedBox(width: 8),
+            Text(
+              'Share with your family and friends',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

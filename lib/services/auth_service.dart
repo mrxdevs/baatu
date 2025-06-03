@@ -27,27 +27,27 @@ class AuthService extends ChangeNotifier {
     _auth.authStateChanges().listen((User? user) async {
       print('Auth state changed. User: ${user?.email ?? 'null'}');
       _user = user;
-      
+
       if (user != null) {
         // Fetch and store user data when authenticated
         await _fetchAndStoreUserData(user.uid);
       } else {
         _userData = null;
       }
-      
+
       notifyListeners();
     });
-    
+
     // Check for cached user data on startup
     await _loadCachedUserData();
   }
-  
+
   Future<void> _loadCachedUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? userDataString = prefs.getString('user_data');
       final String? userId = prefs.getString('user_id');
-      
+
       if (userDataString != null && userId != null && _user == null) {
         // If we have cached data but no authenticated user,
         // check if the token is still valid
@@ -55,7 +55,7 @@ class AuthService extends ChangeNotifier {
         if (currentUser != null) {
           // Token is still valid, update user
           _user = currentUser;
-          
+
           // Parse cached user data
           // This is a simple approach - for complex objects consider using json_serializable
           Map<String, dynamic> cachedData = {};
@@ -65,10 +65,10 @@ class AuthService extends ChangeNotifier {
               cachedData[keyValue[0].trim()] = keyValue[1].trim();
             }
           });
-          
+
           _userData = cachedData;
           notifyListeners();
-          
+
           // Refresh user data in background
           _fetchAndStoreUserData(userId);
         }
@@ -77,38 +77,39 @@ class AuthService extends ChangeNotifier {
       print('Error loading cached user data: $e');
     }
   }
-  
+
   Future<void> _fetchAndStoreUserData(String uid) async {
     try {
-      DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+      DocumentSnapshot doc =
+          await _firestore.collection('users').doc(uid).get();
       if (doc.exists) {
         _userData = doc.data() as Map<String, dynamic>?;
-        
+
         // Cache user data for offline access
         _cacheUserData(uid, _userData);
-        
+
         notifyListeners();
       }
     } catch (e) {
       print('Error fetching user data: $e');
     }
   }
-  
-  Future<void> _cacheUserData(String uid, Map<String, dynamic>? userData) async {
+
+  Future<void> _cacheUserData(
+      String uid, Map<String, dynamic>? userData) async {
     if (userData == null) return;
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Store user ID
       await prefs.setString('user_id', uid);
-      
+
       // Convert userData to a simple string representation
       // For complex objects, consider using json_encode
-      String userDataString = userData.entries
-          .map((e) => '${e.key}:${e.value}')
-          .join(',');
-      
+      String userDataString =
+          userData.entries.map((e) => '${e.key}:${e.value}').join(',');
+
       await prefs.setString('user_data', userDataString);
     } catch (e) {
       print('Error caching user data: $e');
@@ -126,7 +127,7 @@ class AuthService extends ChangeNotifier {
         email: email,
         password: password,
       );
-      
+
       // Get user token for API calls if needed
       String? token = await result.user?.getIdToken();
       if (token != null) {
@@ -134,7 +135,7 @@ class AuthService extends ChangeNotifier {
         await prefs.setString('auth_token', token);
         print('Token stored successfully');
       }
-      
+
       print('Sign in successful for email: $email');
       _isLoading = false;
       notifyListeners();
@@ -153,12 +154,12 @@ class AuthService extends ChangeNotifier {
     try {
       // Check if user is already authenticated
       User? currentUser = _auth.currentUser;
-      
+
       if (currentUser == null) {
         print('No current user found');
         return false;
       }
-      
+
       // Verify token is still valid
       try {
         await currentUser.reload();
@@ -177,17 +178,17 @@ class AuthService extends ChangeNotifier {
 
   Future<void> signOut() async {
     print('Signing out current user');
-    
+
     try {
       // Clear cached data
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('user_data');
       await prefs.remove('user_id');
       await prefs.remove('auth_token');
-      
+
       // Sign out from Firebase
       await _auth.signOut();
-      
+
       _userData = null;
       print('Sign out completed');
     } catch (e) {
@@ -208,9 +209,9 @@ class AuthService extends ChangeNotifier {
         email: email,
         password: password,
       );
-      
+
       print('User created successfully in Firebase Auth');
-      
+
       // If we get here, the user was created successfully
       // Create user document in Firestore
       if (result.user != null) {
@@ -221,12 +222,13 @@ class AuthService extends ChangeNotifier {
         });
         print('User document created in Firestore');
       }
-      
+
       _isLoading = false;
       notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
-      print('Registration failed for email: $email. Firebase Auth Error: ${e.code}');
+      print(
+          'Registration failed for email: $email. Firebase Auth Error: ${e.code}');
       _isLoading = false;
       _errorMessage = _getMessageFromErrorCode(e.code);
       notifyListeners();
@@ -262,14 +264,12 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-
-
   Future<bool> updateUserPreferences(Map<String, dynamic> preferences) async {
     if (_user == null) {
       print('Cannot update preferences: No user logged in');
       return false;
     }
-    
+
     try {
       await _firestore.collection('users').doc(_user!.uid).update({
         'preferences': preferences,
@@ -277,7 +277,8 @@ class AuthService extends ChangeNotifier {
       print('Preferences updated successfully for user: ${_user!.email}');
       return true;
     } catch (e) {
-      print('Failed to update preferences for user: ${_user!.email}. Error: $e');
+      print(
+          'Failed to update preferences for user: ${_user!.email}. Error: $e');
       _errorMessage = e.toString();
       notifyListeners();
       return false;
@@ -305,7 +306,7 @@ class AuthService extends ChangeNotifier {
         return 'Password should be at least 6 characters.';
       case 'network-request-failed':
         return 'Please check your internet connection.';
-      
+
       default:
         return 'An undefined error occurred.';
     }
