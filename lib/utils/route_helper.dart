@@ -1,3 +1,4 @@
+import 'package:baatu/model/user_details.dart';
 import 'package:baatu/screens/auth/forgot_password_screen.dart';
 import 'package:baatu/screens/auth/learning_preferences_screen.dart';
 import 'package:baatu/screens/auth/login_screen.dart';
@@ -7,6 +8,7 @@ import 'package:baatu/screens/auth/success_screen.dart';
 import 'package:baatu/screens/call_screen.dart';
 import 'package:baatu/screens/chat_connection_screen.dart';
 import 'package:baatu/screens/chat_screen.dart';
+import 'package:baatu/screens/edit_profile_screen.dart';
 import 'package:baatu/screens/navigation_home_bar.dart';
 import 'package:baatu/screens/news_screen.dart';
 import 'package:baatu/screens/profile_screen.dart';
@@ -43,6 +45,16 @@ class RouteHelper {
           callingWith: "",
         ),
     ForgotPasswordScreen.routeName: (context) => const ForgotPasswordScreen(),
+    EditProfileScreen.routeName: (context) {
+      final args = ModalRoute.of(context)!.settings.arguments;
+      // Handle the case when arguments might be null or not of UserDetails type
+      if (args is UserDetails) {
+        return EditProfileScreen(userDetails: args);
+      } else {
+        // Provide a default UserDetails if none is provided
+        return EditProfileScreen(userDetails: UserDetails());
+      }
+    },
 
     //All Testing Screens
     TestingScreen.routeName: (context) => const TestingScreen(),

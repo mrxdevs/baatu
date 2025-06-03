@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -64,7 +64,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                        .hasMatch(value)) {
                       return 'Please enter a valid email';
                     }
                     return null;
@@ -90,8 +91,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, ForgotPasswordScreen.routeName);
-                      
+                      Navigator.pushNamed(
+                          context, ForgotPasswordScreen.routeName);
                     },
                     child: const Text(
                       'Forgot Password?',
@@ -115,13 +116,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? null
                         : () async {
                             if (_formKey.currentState!.validate()) {
-                              bool success = await authService.signInWithEmailAndPassword(
+                              bool success =
+                                  await authService.signInWithEmailAndPassword(
                                 _emailController.text.trim(),
                                 _passwordController.text.trim(),
                               );
-                              
+
                               if (success && mounted) {
-                                Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_)=>HomeNavigationScreen()), (route) => false);
+                                Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => HomeNavigationScreen()),
+                                    (route) => false);
                               }
                             }
                           },
@@ -132,24 +138,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Row(
+                Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
                       "Don't have an account? ",
                       style: TextStyle(color: Colors.grey),
                     ),
-                    GestureDetector(
-                      onTap: () {
-                        // Navigator.pushNamed(context, '/register');
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen()));
-                      },
-                      child: const Text(
-                        'Register',
-                        style: TextStyle(
-                          color: AppStyles.primaryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const RegisterScreen()));
+                        },
+                        style: AppStyles.primaryButtonStyle,
+                        child: const Text('Register'),
                       ),
                     ),
                   ],
