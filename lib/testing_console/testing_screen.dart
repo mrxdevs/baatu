@@ -1,6 +1,7 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:baatu/testing_console/audio_call/audio_call_screen.dart';
 import 'package:baatu/testing_console/markdown_fomatter_screen.dart';
+import 'package:baatu/testing_console/notification_test_screen.dart';
 import 'package:baatu/testing_console/video_call/index.dart';
 import 'package:baatu/testing_console/video_call/video_call_screen.dart';
 import 'package:flutter/material.dart';
@@ -44,7 +45,11 @@ class _TestingScreenState extends State<TestingScreen> {
       'icon': Icons.spatial_audio_off_outlined,
       'screen': const AudioIndexScreen()
     },
-    // Add more testing options here
+    {
+      'title': 'Notification Testing',
+      'icon': Icons.notifications_outlined,
+      'screen': const NotificationTestScreen(),
+    },
   ];
 
   List<Map<String, dynamic>> filteredOptions = [];

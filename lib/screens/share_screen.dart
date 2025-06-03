@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:contacts_service/contacts_service.dart';
+import 'package:flutter_contacts/flutter_contacts.dart'; // Updated import
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -33,19 +33,21 @@ class _ShareScreenState extends State<ShareScreen> {
     });
 
     try {
-      final status = await Permission.contacts.request();
-      if (status.isGranted) {
-        final contacts = await ContactsService.getContacts();
+      if (await FlutterContacts.requestPermission()) {
+        final contacts =
+            await FlutterContacts.getContacts(withProperties: true);
         setState(() {
-          _contacts = contacts.toList();
+          _contacts = contacts;
         });
         // Check registration status for all contacts
         _checkRegistrationStatus();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading contacts: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading contacts: $e')),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -58,7 +60,7 @@ class _ShareScreenState extends State<ShareScreen> {
 
     for (var contact in _contacts) {
       final phone =
-          contact.phones?.firstOrNull?.value?.replaceAll(RegExp(r'[^\d+]'), '');
+          contact.phones.firstOrNull?.number.replaceAll(RegExp(r'[^\d+]'), '');
       if (phone != null && phone.isNotEmpty) {
         try {
           final querySnapshot = await firestore
@@ -173,8 +175,8 @@ class _ShareScreenState extends State<ShareScreen> {
                     itemCount: _contacts.length,
                     itemBuilder: (context, index) {
                       final contact = _contacts[index];
-                      final phone = contact.phones?.firstOrNull?.value
-                              ?.replaceAll(RegExp(r'[^\d+]'), '') ??
+                      final phone = contact.phones.firstOrNull?.number
+                              .replaceAll(RegExp(r'[^\d+]'), '') ??
                           '';
 
                       if (phone.isEmpty) return const SizedBox.shrink();
@@ -183,10 +185,13 @@ class _ShareScreenState extends State<ShareScreen> {
 
                       return ListTile(
                         leading: CircleAvatar(
-                          child: Text(
-                              contact.displayName?[0].toUpperCase() ?? '?'),
+                          child: Text(contact.displayName.isNotEmpty
+                              ? contact.displayName[0].toUpperCase()
+                              : '?'),
                         ),
-                        title: Text(contact.displayName ?? 'Unknown'),
+                        title: Text(contact.displayName.isNotEmpty
+                            ? contact.displayName
+                            : 'Unknown'),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -204,8 +209,7 @@ class _ShareScreenState extends State<ShareScreen> {
                                 onPressed: () => _sendSMS(phone),
                               ),
                               IconButton(
-                                icon: const Icon(Icons
-                                    .send), // Changed to send icon instead of whatsapp
+                                icon: const Icon(Icons.send),
                                 onPressed: () => _shareViaWhatsApp(phone),
                               ),
                             ],
