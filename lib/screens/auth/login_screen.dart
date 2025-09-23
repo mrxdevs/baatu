@@ -1,7 +1,9 @@
 import 'package:baatu/screens/auth/forgot_password_screen.dart';
 import 'package:baatu/screens/auth/register_screen.dart';
 import 'package:baatu/screens/navigation_home_bar.dart';
+import 'package:baatu/services/google_sign_in.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../utils/app_styles.dart';
 import '../../services/auth_service.dart';
 import 'package:provider/provider.dart';
@@ -131,34 +133,80 @@ class _LoginScreenState extends State<LoginScreen> {
                               }
                             }
                           },
-                    style: AppStyles.primaryButtonStyle,
+                    style: AppStyles.primaryOutlineButtonStyle,
                     child: authService.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Login'),
                   ),
                 ),
-                const SizedBox(height: 24),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  child: Text(
+                    "Or",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      "Don't have an account? ",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      child: OutlinedButton.icon(
                         onPressed: () {
-                          Navigator.push(
+                          final provider = Provider.of<GoogleSignInProvider>(
+                              context,
+                              listen: false);
+
+                          provider.googleSignIn();
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black87,
+                          side: const BorderSide(color: Colors.grey),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          backgroundColor: Colors.white,
+                          textStyle:
+                              const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        icon: const FaIcon(
+                          FontAwesomeIcons.google,
+                          color: Color(0xFF4285F4),
+                        ),
+                        label: const Text('Sign in with Google'),
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 30,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "Don't have an account? ",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) =>
-                                      const RegisterScreen()));
-                        },
-                        style: AppStyles.primaryButtonStyle,
-                        child: const Text('Register'),
-                      ),
+                                builder: (context) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Register',
+                            style: TextStyle(
+                              color: AppStyles.primaryColor,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -169,4 +217,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+  _singUpWithGoogle() {}
 }

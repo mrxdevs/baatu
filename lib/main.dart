@@ -1,6 +1,8 @@
+import 'package:baatu/services/google_sign_in.dart';
 import 'package:baatu/utils/app_config.dart';
 import 'package:baatu/utils/get_package_details.dart';
 import 'package:baatu/utils/route_helper.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +25,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => GoogleSignInProvider()),
       ],
       child: const MyApp(),
     ),

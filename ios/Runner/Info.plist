@@ -32,6 +32,18 @@
 		<string>LaunchScreen</string>
 		<key>UIMainStoryboardFile</key>
 		<string>Main</string>
+		<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>app-1-375278576151-ios-a99e74bd934918dafd7252</string>
+    </array>
+    <key>CFBundleTypeRole</key>
+    <string>Editor</string>
+  </dict>
+</array>
+		
 		<key>UISupportedInterfaceOrientations</key>
 		<array>
 			<string>UIInterfaceOrientationPortrait</string>
