@@ -1,4 +1,5 @@
 import 'package:baatu/screens/auth/forgot_password_screen.dart';
+import 'package:baatu/screens/auth/learning_preferences_screen.dart';
 import 'package:baatu/screens/auth/register_screen.dart';
 import 'package:baatu/screens/navigation_home_bar.dart';
 import 'package:baatu/services/google_sign_in.dart';
@@ -133,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               }
                             }
                           },
-                    style: AppStyles.primaryOutlineButtonStyle,
+                    style: AppStyles.primaryButtonStyle,
                     child: authService.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Login'),
@@ -153,24 +154,27 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () {
+                        onPressed: () async {
                           final provider = Provider.of<GoogleSignInProvider>(
                               context,
                               listen: false);
 
-                          provider.googleSignIn();
+                          final user = await provider.googleSignIn();
+
+                          if (mounted || user?.user != null) {
+                            if (user?.additionalUserInfo?.isNewUser == true) {
+                              Navigator.pushNamed(
+                                  context, LearningPreferencesScreen.routeName);
+                            } else {
+                              Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => HomeNavigationScreen()),
+                                  (route) => false);
+                            }
+                          }
                         },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.black87,
-                          side: const BorderSide(color: Colors.grey),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          backgroundColor: Colors.white,
-                          textStyle:
-                              const TextStyle(fontWeight: FontWeight.w600),
-                        ),
+                        style: AppStyles.primaryOutlineButtonStyle,
                         icon: const FaIcon(
                           FontAwesomeIcons.google,
                           color: Color(0xFF4285F4),
@@ -217,6 +221,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
-  _singUpWithGoogle() {}
 }
