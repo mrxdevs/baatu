@@ -1,5 +1,8 @@
 import 'package:baatu/screens/auth/learning_preferences_screen.dart';
+import 'package:baatu/screens/navigation_home_bar.dart';
+import 'package:baatu/services/google_sign_in.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../utils/app_styles.dart';
 import '../../services/auth_service.dart';
 import 'package:provider/provider.dart';
@@ -31,7 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -82,7 +85,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                        .hasMatch(value)) {
                       return 'Please enter a valid email';
                     }
                     return null;
@@ -143,17 +147,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               // Initial preferences to store
                               Map<String, dynamic> preferences = {
                                 'name': _nameController.text.trim(),
-                                'registrationDate': DateTime.now().toIso8601String(),
+                                'registrationDate':
+                                    DateTime.now().toIso8601String(),
                               };
-                              
-                              bool success = await authService.registerWithEmailAndPassword(
+
+                              bool success = await authService
+                                  .registerWithEmailAndPassword(
                                 _emailController.text.trim(),
                                 _passwordController.text.trim(),
                                 preferences,
                               );
-                              
+
                               if (success && mounted) {
-                                Navigator.pushNamed(context, LearningPreferencesScreen.routeName);
+                                Navigator.pushNamed(context,
+                                    LearningPreferencesScreen.routeName);
                               }
                             }
                           },
@@ -163,25 +170,71 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         : const Text('Register'),
                   ),
                 ),
-                const SizedBox(height: 24),
-                Row(
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  child: Text(
+                    "Or",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      "Already have an account? ",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        'Login',
-                        style: TextStyle(
-                          color: AppStyles.primaryColor,
-                          fontWeight: FontWeight.bold,
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final provider = Provider.of<GoogleSignInProvider>(
+                              context,
+                              listen: false);
+
+                          final user = await provider.googleSignIn();
+
+                          if (mounted || user?.user != null) {
+                            if (user?.additionalUserInfo?.isNewUser == true) {
+                              Navigator.pushNamed(
+                                  context, LearningPreferencesScreen.routeName);
+                            } else {
+                              Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => HomeNavigationScreen()),
+                                  (route) => false);
+                            }
+                          }
+                        },
+                        style: AppStyles.primaryOutlineButtonStyle,
+                        icon: const FaIcon(
+                          FontAwesomeIcons.google,
+                          color: Color(0xFF4285F4),
                         ),
+                        label: const Text('Sign up with Google'),
                       ),
+                    ),
+                    const SizedBox(
+                      height: 24,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "Already have an account? ",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text(
+                            'Login',
+                            style: TextStyle(
+                              color: AppStyles.primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
