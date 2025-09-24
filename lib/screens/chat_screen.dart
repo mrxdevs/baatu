@@ -1,4 +1,4 @@
-import 'package:baatu/secrete/api_keys.dart';
+import 'package:baatu/core/secerate/.env.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -52,7 +52,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _geminiService = GeminiService(
-      apiKey: ApiKeys.googleApiKey, // Replace with your actual Gemini API key
+      apiKey: googleApiKey, // Replace with your actual Gemini API key
     );
 
     _loadChatHistory();
