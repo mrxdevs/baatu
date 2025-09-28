@@ -19,7 +19,7 @@ import 'package:baatu/screens/sections/words_screen.dart';
 import 'package:baatu/screens/settings_screen.dart';
 import 'package:baatu/screens/splash_screen.dart';
 import 'package:baatu/testing_console/testing_screen.dart';
-import 'package:baatu/testing_console/video_call/video_call_screen.dart';
+// import 'package:baatu/testing_console/video_call/video_call_screen.dart';
 import 'package:flutter/material.dart';
 
 class RouteHelper {
@@ -58,6 +58,6 @@ class RouteHelper {
 
     //All Testing Screens
     TestingScreen.routeName: (context) => const TestingScreen(),
-    VideoCallScreen.routeName: (context) => const VideoCallScreen(),
+    // VideoCallScreen.routeName: (context) => const VideoCallScreen(),
   };
 }
