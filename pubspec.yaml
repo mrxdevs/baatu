@@ -41,24 +41,24 @@ dependencies:
   firebase_app_check: ^0.4.1
   shared_preferences: ^2.5.3
   flutter_markdown: ^0.7.7+1
-  package_info_plus: ^8.3.0
+  package_info_plus: ^9.0.0
   lottie: ^3.3.1
-  agora_rtc_engine: ^6.5.2
+  # agora_rtc_engine: ^6.5.3
   permission_handler: ^12.0.0+1
   cached_network_image: ^3.2.3
   image_picker: ^1.0.4
   shimmer: ^3.0.0
   firebase_storage: ^13.0.2
-  share_plus: ^7.2.1
+  share_plus: ^12.0.0
   url_launcher: ^6.1.14
  
   video_player: ^2.8.2
   chewie: ^1.7.4
-  audioplayers: ^5.2.1
+  audioplayers: ^6.5.1
   
   flutter_contacts: ^1.1.9+2
   firebase_messaging: ^16.0.2
-  flutter_local_notifications: ^19.2.1
+  flutter_local_notifications: ^19.4.2
   google_sign_in: ^7.2.0
   font_awesome_flutter: ^10.10.0
 
@@ -74,7 +74,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
