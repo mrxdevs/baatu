@@ -32,11 +32,11 @@ class _TestingScreenState extends State<TestingScreen> {
     //   'icon': Icons.video_call_outlined,
     //   'screen': const VideoCallScreen(),
     // },
-    // {
-    //   'title': 'Video Call Indexing',
-    //   'icon': Icons.video_chat_outlined,
-    //   'screen': const IndexPage()
-    // },
+    {
+      'title': 'Audio Call Indexing',
+      'icon': Icons.video_chat_outlined,
+      'screen': const AudioIndexScreen()
+    },
     {
       'title': 'Audio Call',
       'icon': Icons.call_outlined,
