@@ -1,9 +1,40 @@
-plugins {
-  // ...
-
-  // Add the dependency for the Google services Gradle plugin
-  id 'com.google.gms.google-services' version '4.4.2' apply false
+// File: android/build.gradle (Project level)
+// The buildscript block configures the plugins themselves (it does NOT contain ext for submodules)
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Example of a buildscript dependency
+        classpath "com.android.tools.build:gradle:8.1.4"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0"
+        // ...
+    }
 }
+
+plugins {
+    // ...
+    // Add the dependency for the Google services Gradle plugin
+    id 'com.google.gms.google-services' version '4.4.3' apply false
+}
+
+// 💥 CORRECT LOCATION: Define the properties directly under the project root
+ext {
+    // These variables will be referenced by the agora_rtc_engine module's build.gradle
+    minSdkVersion = 21 
+    compileSdkVersion = 36 // Forces all modules to compile against API 36
+    targetSdkVersion = 36 
+
+    // This block is often used by Flutter's internals but defining them here is safer
+    // flutter {
+    //     compileSdkVersion = 36
+    // }
+}
+
+
+// ----------------------------------------------------------------------
+
 allprojects {
     repositories {
         google()
@@ -16,6 +47,8 @@ subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
 subprojects {
+    // Ensure all subprojects (including plugins like agora_rtc_engine) inherit the properties
+    // This is optional but can sometimes help with ordering
     project.evaluationDependsOn(":app")
 }
 
