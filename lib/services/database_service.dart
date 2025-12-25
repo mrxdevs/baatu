@@ -6,8 +6,7 @@ class DatabaseService {
   DatabaseService({this.uid});
 
   // Collection references
-  final CollectionReference userCollection =
-      FirebaseFirestore.instance.collection('users');
+  final CollectionReference userCollection = FirebaseFirestore.instance.collection('users');
   final CollectionReference learningCollection =
       FirebaseFirestore.instance.collection('learning_content');
 
@@ -18,18 +17,16 @@ class DatabaseService {
 
   // Update user preferences
   Future<void> updateUserPreferences(Map<String, dynamic> preferences) async {
-    return await userCollection.doc(uid).update({
+    return await userCollection.doc(uid).set({
       'preferences': preferences,
-    });
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   // Get learning content
-  Future<List<Map<String, dynamic>>> getLearningContent(
-      String contentType) async {
-    QuerySnapshot snapshot = await learningCollection
-        .where('type', isEqualTo: contentType)
-        .limit(10)
-        .get();
+  Future<List<Map<String, dynamic>>> getLearningContent(String contentType) async {
+    QuerySnapshot snapshot =
+        await learningCollection.where('type', isEqualTo: contentType).limit(10).get();
 
     return snapshot.docs.map((doc) {
       Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
@@ -42,11 +39,7 @@ class DatabaseService {
   Future<void> saveUserProgress(String contentId, double progress) async {
     if (uid == null) return;
 
-    return await userCollection
-        .doc(uid)
-        .collection('progress')
-        .doc(contentId)
-        .set({
+    return await userCollection.doc(uid).collection('progress').doc(contentId).set({
       'progress': progress,
       'lastAccessed': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -56,8 +49,7 @@ class DatabaseService {
   Future<Map<String, dynamic>> getUserProgress() async {
     if (uid == null) return {};
 
-    QuerySnapshot snapshot =
-        await userCollection.doc(uid).collection('progress').get();
+    QuerySnapshot snapshot = await userCollection.doc(uid).collection('progress').get();
 
     Map<String, dynamic> progress = {};
     for (var doc in snapshot.docs) {

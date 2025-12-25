@@ -12,7 +12,20 @@
           "package_name": "com.digiwellie.baatu"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "375278576151-54ar7sbo7fht28764kef9q5k5te6oam3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.digiwellie.baatu",
+            "certificate_hash": "b3556fbe845ed911573b57d1ccd8481c81a3edee"
+          }
+        },
+        {
+          "client_id": "375278576151-nm8qjfvpf19ajcuotod24mdujsp8gn77.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBMW4kT_UzIHLgte2fjQzr0SJZ_M4A1QA4"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "375278576151-nm8qjfvpf19ajcuotod24mdujsp8gn77.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "375278576151-651ve97to75qm9kafpglintsbmignu28.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.digiwellie.com"
+              }
+            }
+          ]
         }
       }
     }

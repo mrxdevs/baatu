@@ -1,4 +1,4 @@
-import 'package:baatu/core/secerate/.env.dart';
+import 'package:baatu/core/config/env_config.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -52,7 +52,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _geminiService = GeminiService(
-      apiKey: googleApiKey, // Replace with your actual Gemini API key
+      apiKey: EnvConfig.googleApiKey,
     );
 
     _loadChatHistory();
@@ -140,20 +140,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 // Add to display list
                 if (role == 'user') {
                   _messages.add(const SizedBox(height: 20));
-                  _messages.add(_buildUserMessage(
-                      content, const AssetImage('assets/images/user.png')));
+                  _messages
+                      .add(_buildUserMessage(content, const AssetImage('assets/images/user.png')));
                   _messages.add(const SizedBox(height: 20));
                 } else if (role == 'model') {
                   _messages.add(const SizedBox(height: 20));
-                  _messages.add(_buildBotMessage(
-                      content, const AssetImage('assets/images/bee.png')));
+                  _messages
+                      .add(_buildBotMessage(content, const AssetImage('assets/images/bee.png')));
                   _messages.add(const SizedBox(height: 20));
                 }
               }
             }
             // Force scroll after loading history
-            WidgetsBinding.instance
-                .addPostFrameCallback((_) => _scrollToBottom());
+            WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
           }
         });
       }
@@ -177,8 +176,8 @@ class _ChatScreenState extends State<ChatScreen> {
     // Add a placeholder message while waiting for the first response
     setState(() {
       _messages.add(const SizedBox(height: 20));
-      _messages.add(_buildBotMessage(
-          "...", const AssetImage('assets/images/bee.png'))); // Placeholder
+      _messages
+          .add(_buildBotMessage("...", const AssetImage('assets/images/bee.png'))); // Placeholder
       _messages.add(const SizedBox(height: 20));
       _isTyping = true;
     });
@@ -196,8 +195,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _handleMessage({String? initialPrompt}) async {
-    final message = initialPrompt ??
-        _messageController.text.trim(); // Use initialPrompt if provided
+    final message =
+        initialPrompt ?? _messageController.text.trim(); // Use initialPrompt if provided
 
     if (message.isEmpty) return;
 
@@ -209,8 +208,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     if (kDebugMode) {
-      print(
-          'ChatScreen: Sending message: $userMessage (initial: ${initialPrompt != null})');
+      print('ChatScreen: Sending message: $userMessage (initial: ${initialPrompt != null})');
     }
 
     // Add user message to history and display
@@ -227,8 +225,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ));
         _messages.add(const SizedBox(height: 20));
         _isTyping = true;
-        _currentStreamedResponse =
-            ''; // Clear for new streamed response if applicable
+        _currentStreamedResponse = ''; // Clear for new streamed response if applicable
       });
       // Force scroll after adding user message
       await Future.delayed(const Duration(milliseconds: 100));
@@ -271,14 +268,12 @@ class _ChatScreenState extends State<ChatScreen> {
       if (placeholderIndex > 0) {
         // The placeholder is the SizedBox *after* the temporary bot message
         // We will replace the temporary bot message and its trailing SizedBox.
-        typingIndicatorMessageIndex =
-            placeholderIndex - 1; // Index of the temporary bot message
+        typingIndicatorMessageIndex = placeholderIndex - 1; // Index of the temporary bot message
       } else {
         // Could not find placeholder, add typing indicator at the end
         typingIndicatorMessageIndex = _messages.length;
         setState(() {
-          _messages.add(_buildBotMessage(
-              "Typing...", const AssetImage('assets/images/bee.png')));
+          _messages.add(_buildBotMessage("Typing...", const AssetImage('assets/images/bee.png')));
           _messages.add(const SizedBox(height: 20));
         });
       }
@@ -286,15 +281,13 @@ class _ChatScreenState extends State<ChatScreen> {
       // For regular user messages, add typing indicator at the end
       typingIndicatorMessageIndex = _messages.length;
       setState(() {
-        _messages.add(_buildBotMessage(
-            "Typing...", const AssetImage('assets/images/bee.png')));
+        _messages.add(_buildBotMessage("Typing...", const AssetImage('assets/images/bee.png')));
         _messages.add(const SizedBox(height: 20));
       });
     }
 
     if (kDebugMode) {
-      print(
-          'ChatScreen: Showing typing indicator at messages index: $typingIndicatorMessageIndex');
+      print('ChatScreen: Showing typing indicator at messages index: $typingIndicatorMessageIndex');
     }
 
     // Force scroll after adding typing indicator
@@ -303,8 +296,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       if (kDebugMode) {
-        print(
-            'ChatScreen: Calling Gemini API with history length: ${_conversationHistory.length}');
+        print('ChatScreen: Calling Gemini API with history length: ${_conversationHistory.length}');
       }
 
       // Get complete response from API using the managed history
@@ -333,10 +325,8 @@ class _ChatScreenState extends State<ChatScreen> {
               print(
                   'ChatScreen: Removing typing indicator and SizedBox at indices $typingIndicatorMessageIndex and ${typingIndicatorMessageIndex + 1}');
             }
-            _messages.removeAt(
-                typingIndicatorMessageIndex + 1); // Remove height SizedBox
-            _messages
-                .removeAt(typingIndicatorMessageIndex); // Remove typing message
+            _messages.removeAt(typingIndicatorMessageIndex + 1); // Remove height SizedBox
+            _messages.removeAt(typingIndicatorMessageIndex); // Remove typing message
           } else {
             if (kDebugMode) {
               print(
@@ -346,23 +336,20 @@ class _ChatScreenState extends State<ChatScreen> {
                 _messages.removeLast(); // Remove SizedBox
                 _messages.removeLast(); // Remove typing message
               } else if (_messages.isNotEmpty) {
-                _messages
-                    .removeLast(); // Remove just the typing message if no SizedBox
+                _messages.removeLast(); // Remove just the typing message if no SizedBox
               }
             }
           }
 
           if (kDebugMode) {
-            print(
-                'ChatScreen: Adding bot response at index $typingIndicatorMessageIndex');
+            print('ChatScreen: Adding bot response at index $typingIndicatorMessageIndex');
           }
 
           // Add the complete response at the position where the typing indicator was (or end)
           _currentStreamedResponse =
               response; // Not actually streaming, but reusing the variable name
           _messages.insert(
-              typingIndicatorMessageIndex >= 0 &&
-                      typingIndicatorMessageIndex <= _messages.length
+              typingIndicatorMessageIndex >= 0 && typingIndicatorMessageIndex <= _messages.length
                   ? typingIndicatorMessageIndex
                   : _messages.length,
               _buildBotMessage(
@@ -370,23 +357,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 const AssetImage('assets/images/bee.png'),
               ));
           _messages.insert(
-              typingIndicatorMessageIndex >= 0 &&
-                      typingIndicatorMessageIndex <= _messages.length
+              typingIndicatorMessageIndex >= 0 && typingIndicatorMessageIndex <= _messages.length
                   ? typingIndicatorMessageIndex + 1
                   : _messages.length,
               const SizedBox(height: 20));
 
           // **Add bot response to conversation history**
-          _conversationHistory
-              .add({'role': 'model', 'content': _currentStreamedResponse});
+          _conversationHistory.add({'role': 'model', 'content': _currentStreamedResponse});
 
           _isTyping = false;
 
           if (kDebugMode) {
-            print(
-                'ChatScreen: Final messages length after update: ${_messages.length}');
-            print(
-                'ChatScreen: Final conversation history length: ${_conversationHistory.length}');
+            print('ChatScreen: Final messages length after update: ${_messages.length}');
+            print('ChatScreen: Final conversation history length: ${_conversationHistory.length}');
           }
         });
 
@@ -406,18 +389,15 @@ class _ChatScreenState extends State<ChatScreen> {
           if (typingIndicatorMessageIndex >= 0 &&
               typingIndicatorMessageIndex < _messages.length - 1) {
             // Ensure there's a SizedBox after
-            _messages.removeAt(
-                typingIndicatorMessageIndex + 1); // Remove height SizedBox
-            _messages
-                .removeAt(typingIndicatorMessageIndex); // Remove typing message
+            _messages.removeAt(typingIndicatorMessageIndex + 1); // Remove height SizedBox
+            _messages.removeAt(typingIndicatorMessageIndex); // Remove typing message
           } else {
             // Fallback: Remove the last two elements assuming they are the typing indicator and SizedBox
             if (_messages.length >= 2) {
               _messages.removeLast(); // Remove SizedBox
               _messages.removeLast(); // Remove typing message
             } else if (_messages.isNotEmpty) {
-              _messages
-                  .removeLast(); // Remove just the typing message if no SizedBox
+              _messages.removeLast(); // Remove just the typing message if no SizedBox
             }
           }
           _isTyping = false;
@@ -427,11 +407,9 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _saveMessage(
-      {required String role, required String content}) async {
+  Future<void> _saveMessage({required String role, required String content}) async {
     if (_userId == null || _chatId == null) {
-      debugPrint(
-          "Cannot save message: User not logged in or chat ID not available.");
+      debugPrint("Cannot save message: User not logged in or chat ID not available.");
       return;
     }
     try {
@@ -516,13 +494,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       _isTyping &&
                               _messages.isNotEmpty &&
                               _messages.last is Row &&
-                              (_messages.last as Row).children.first
-                                  is CircleAvatar &&
-                              ((_messages.last as Row).children.first
-                                      as CircleAvatar)
+                              (_messages.last as Row).children.first is CircleAvatar &&
+                              ((_messages.last as Row).children.first as CircleAvatar)
                                   .backgroundImage is AssetImage &&
-                              (((_messages.last as Row).children.first
-                                          as CircleAvatar)
+                              (((_messages.last as Row).children.first as CircleAvatar)
                                       .backgroundImage as AssetImage)
                                   .assetName
                                   .contains('bee')
@@ -594,27 +569,20 @@ class _ChatScreenState extends State<ChatScreen> {
                       controller: _messageController,
                       enabled: !_isTyping, // Disable input while typing
                       decoration: InputDecoration(
-                        hintText: _isTyping
-                            ? 'Nancy is thinking...'
-                            : 'Type your message...',
+                        hintText: _isTyping ? 'Nancy is thinking...' : 'Type your message...',
                         hintStyle: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 16,
                         ),
                         border: InputBorder.none,
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 10),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                       ),
-                      onSubmitted: _isTyping
-                          ? null
-                          : (_) =>
-                              _handleMessage(), // Disable submit while typing
+                      onSubmitted:
+                          _isTyping ? null : (_) => _handleMessage(), // Disable submit while typing
                     ),
                   ),
                   GestureDetector(
-                    onTap: _isTyping
-                        ? null
-                        : _handleMessage, // Disable button while typing
+                    onTap: _isTyping ? null : _handleMessage, // Disable button while typing
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -636,10 +604,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           // Loading overlay (optional, but good for long waits)
           if (_isTyping &&
-              _messages
-                  .isEmpty) // Show a central indicator if loading the very first message
-            const Center(
-                child: CircularProgressIndicator(color: Color(0xFF8E4585))),
+              _messages.isEmpty) // Show a central indicator if loading the very first message
+            const Center(child: CircularProgressIndicator(color: Color(0xFF8E4585))),
         ],
       ),
     );

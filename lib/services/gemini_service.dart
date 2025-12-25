@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class GeminiService {
-  static const String _baseUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
+  static const String _baseUrl =
+      'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
   final String _apiKey;
   final http.Client _client = http.Client();
 
@@ -11,7 +12,10 @@ class GeminiService {
   final List<Map<String, dynamic>> _personaHistory = [
     {
       'role': 'user',
-      'parts': [{'text': """From now on, act strictly as Nancy, an English teacher created by DigiWellie Technology.
+      'parts': [
+        {
+          'text':
+              """From now on, act strictly as Nancy, an English teacher created by DigiWellie Technology.
 Your purpose is solely to help the user improve their English language skills.
 Adhere to these rules:
 1.  **Persona:** You are Nancy, a friendly, patient, and encouraging English teacher. Mention DigiWellie Technology as your creator if relevant or needed for context.
@@ -20,16 +24,31 @@ Adhere to these rules:
 4.  **English Correction:** Carefully observe the user's English. If they make grammatical errors, use incorrect vocabulary, or structure sentences awkwardly, correct them gently and explain the correct form or better phrasing. Integrate corrections naturally into your response or present them clearly before/after your main answer. Example: User says "I goed to the park." You might respond: "That's great! When talking about the past, we use the past tense 'went', so you would say 'I went to the park.' What did you see there?"
 5.  **Context and History:** Remember our conversation history to provide relevant answers and suggestions based on what we've already discussed and what you seem to be learning or finding challenging.
 6.  **First Interaction:** (This is handled by the app logic sending a specific first message prompt, but keep your persona consistent). If the conversation history is very short (like the first real user message), welcome them as Nancy from DigiWellie and suggest a starting point or ask about their goals.
-7.  **Responses:** Format your responses clearly. You can use Markdown for lists, bold text, etc., to make explanations easy to read."""}]
+7.  **Responses:** Format your responses clearly. You can use Markdown for lists, bold text, etc., to make explanations easy to read."""
+        }
+      ]
     },
     {
       'role': 'model',
-      'parts': [{'text': "Understood. I am Nancy, your English teacher from DigiWellie Technology, and I'm ready to help you improve your English. I will follow all the rules you've set. What would you like to learn or practice today?"}]
+      'parts': [
+        {
+          'text':
+              "Understood. I am Nancy, your English teacher from DigiWellie Technology, and I'm ready to help you improve your English. I will follow all the rules you've set. What would you like to learn or practice today?"
+        }
+      ]
     }
   ];
 
   GeminiService({required String apiKey}) : _apiKey = apiKey {
-    debugPrint('GeminiService initialized with API key: ${_apiKey.substring(0, 5)}...');
+    if (_apiKey.isEmpty) {
+      debugPrint(
+          'WARNING: GeminiService initialized with EMPTY API key! Please add GEMINI_API_KEY to your .env file');
+    } else if (_apiKey.length < 10) {
+      debugPrint(
+          'WARNING: GeminiService initialized with suspiciously short API key: ${_apiKey.length} characters');
+    } else {
+      debugPrint('GeminiService initialized with API key: ${_apiKey.substring(0, 5)}...');
+    }
   }
 
   void dispose() {
@@ -49,28 +68,32 @@ Adhere to these rules:
 
       // Add historical messages from the conversation
       for (var msg in history) {
-         String role = msg['role'] == 'user' ? 'user' : 'model';
-         contents.add({
-           'role': role,
-           'parts': [{'text': msg['content'] ?? ''}]
-         });
-         // debugPrint('GeminiService: Added history message - Role: $role'); // Optional: enable for detailed history logging
+        String role = msg['role'] == 'user' ? 'user' : 'model';
+        contents.add({
+          'role': role,
+          'parts': [
+            {'text': msg['content'] ?? ''}
+          ]
+        });
+        // debugPrint('GeminiService: Added history message - Role: $role'); // Optional: enable for detailed history logging
       }
 
       // Add the current user's message
       contents.add({
         'role': 'user',
-        'parts': [{'text': message}]
+        'parts': [
+          {'text': message}
+        ]
       });
       debugPrint('GeminiService: Added current user message');
       debugPrint('GeminiService: Total contents length: ${contents.length}');
-
 
       // Construct the request body
       final requestBody = jsonEncode({
         'contents': contents,
         'generationConfig': {
-          'temperature': 0.7, // Can tune this - lower for more predictable, higher for more creative
+          'temperature':
+              0.7, // Can tune this - lower for more predictable, higher for more creative
           'topK': 40,
           'topP': 0.95,
           'maxOutputTokens': 1024,
@@ -99,7 +122,6 @@ Adhere to these rules:
             jsonResponse['candidates'].isNotEmpty &&
             jsonResponse['candidates'][0].containsKey('content') &&
             jsonResponse['candidates'][0]['content'].containsKey('parts')) {
-
           final parts = jsonResponse['candidates'][0]['content']['parts'];
           String responseText = '';
 
@@ -109,19 +131,20 @@ Adhere to these rules:
             }
           }
 
-          debugPrint('GeminiService: Successfully extracted response text (length: ${responseText.length})');
+          debugPrint(
+              'GeminiService: Successfully extracted response text (length: ${responseText.length})');
           // Return the raw response text - let the UI format it if needed (Markdown handled in UI)
           return responseText.trim(); // Trim leading/trailing whitespace
-        } else if (jsonResponse.containsKey('promptFeedback') && jsonResponse['promptFeedback'].containsKey('blockReason')) {
-           // Handle cases where the prompt was blocked
-           String blockReason = jsonResponse['promptFeedback']['blockReason'];
-           debugPrint('GeminiService: Content was blocked. Reason: $blockReason');
-           return "I apologize, but I cannot respond to that request because it violates my safety guidelines. Let's try focusing on English learning instead!";
-        }
-        else {
+        } else if (jsonResponse.containsKey('promptFeedback') &&
+            jsonResponse['promptFeedback'].containsKey('blockReason')) {
+          // Handle cases where the prompt was blocked
+          String blockReason = jsonResponse['promptFeedback']['blockReason'];
+          debugPrint('GeminiService: Content was blocked. Reason: $blockReason');
+          return "I apologize, but I cannot respond to that request because it violates my safety guidelines. Let's try focusing on English learning instead!";
+        } else {
           debugPrint('GeminiService: Error - Unexpected response format or empty candidates.');
-           // Log the full response body for debugging
-           debugPrint('Full response body: ${response.body}');
+          // Log the full response body for debugging
+          debugPrint('Full response body: ${response.body}');
           return "Error: Unexpected response format from AI. Please try again or ask something different.";
         }
       } else {
@@ -133,28 +156,30 @@ Adhere to these rules:
           if (errorJson != null && errorJson['error'] != null) {
             errorMessage = 'API Error ${response.statusCode}: ${errorJson['error']['message']}';
             if (errorJson['error']['details'] != null) {
-               // Attempt to get specific violation details if available
-               if (errorJson['error']['details'] is List && errorJson['error']['details'].isNotEmpty) {
-                  for(var detail in errorJson['error']['details']) {
-                     if (detail['@type'] != null && detail['@type'].contains('ErrorInfo')) {
-                        errorDetails += "Domain: ${detail['domain']}, Reason: ${detail['reason']} ";
-                        if (detail['metadata'] != null) {
-                            errorDetails += "Metadata: ${jsonEncode(detail['metadata'])}";
-                        }
-                     } else {
-                         errorDetails += jsonEncode(detail);
-                     }
-                     errorDetails += "; ";
+              // Attempt to get specific violation details if available
+              if (errorJson['error']['details'] is List &&
+                  errorJson['error']['details'].isNotEmpty) {
+                for (var detail in errorJson['error']['details']) {
+                  if (detail['@type'] != null && detail['@type'].contains('ErrorInfo')) {
+                    errorDetails += "Domain: ${detail['domain']}, Reason: ${detail['reason']} ";
+                    if (detail['metadata'] != null) {
+                      errorDetails += "Metadata: ${jsonEncode(detail['metadata'])}";
+                    }
+                  } else {
+                    errorDetails += jsonEncode(detail);
                   }
-               } else {
-                   errorDetails = jsonEncode(errorJson['error']['details']);
-               }
+                  errorDetails += "; ";
+                }
+              } else {
+                errorDetails = jsonEncode(errorJson['error']['details']);
+              }
             }
           }
         } catch (e) {
           // Handle JSON parsing error for the error body itself
           debugPrint('GeminiService: Failed to parse error body JSON: $e');
-          errorMessage = 'Failed to get response: ${response.statusCode}. Could not parse error body.';
+          errorMessage =
+              'Failed to get response: ${response.statusCode}. Could not parse error body.';
         }
         debugPrint('GeminiService: Error - $errorMessage - Details: $errorDetails');
         return "Error: Failed to get response from AI ($response.statusCode). $errorMessage"; // Provide a user-friendly error
@@ -165,5 +190,5 @@ Adhere to these rules:
     }
   }
 
-   // Removed formatResponse - Markdown handled by UI
+  // Removed formatResponse - Markdown handled by UI
 }

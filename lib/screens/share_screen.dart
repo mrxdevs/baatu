@@ -17,8 +17,16 @@ class ShareScreen extends StatefulWidget {
 class _ShareScreenState extends State<ShareScreen> {
   List<Contact> _contacts = [];
   bool _isLoading = false;
-  final String _inviteMessage =
-      "Join me on Baatu! It's an amazing app for learning and practicing English. Download now: https://baatu.app";
+  final String _inviteMessage = '''
+🌟 Hey! I found an awesome app called Baatu that helps you learn and practice English in a fun way! 🚀
+
+✨ Improve your speaking, listening, and vocabulary with interactive lessons and daily challenges.
+
+Download Baatu now and join me on this journey! 👇
+https://play.google.com/store/apps/details?id=com.digiwellie.baatu&pcampaignid=web_share
+
+- DigiWellie
+''';
   Map<String, bool> _registeredUsers = {};
 
   @override
