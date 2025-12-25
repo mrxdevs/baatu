@@ -80,8 +80,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _fetchAndStoreUserData(String uid) async {
     try {
-      DocumentSnapshot doc =
-          await _firestore.collection('users').doc(uid).get();
+      DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists) {
         _userData = doc.data() as Map<String, dynamic>?;
 
@@ -95,8 +94,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> _cacheUserData(
-      String uid, Map<String, dynamic>? userData) async {
+  Future<void> _cacheUserData(String uid, Map<String, dynamic>? userData) async {
     if (userData == null) return;
 
     try {
@@ -107,8 +105,7 @@ class AuthService extends ChangeNotifier {
 
       // Convert userData to a simple string representation
       // For complex objects, consider using json_encode
-      String userDataString =
-          userData.entries.map((e) => '${e.key}:${e.value}').join(',');
+      String userDataString = userData.entries.map((e) => '${e.key}:${e.value}').join(',');
 
       await prefs.setString('user_data', userDataString);
     } catch (e) {
@@ -227,8 +224,7 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
-      print(
-          'Registration failed for email: $email. Firebase Auth Error: ${e.code}');
+      print('Registration failed for email: $email. Firebase Auth Error: ${e.code}');
       _isLoading = false;
       _errorMessage = _getMessageFromErrorCode(e.code);
       notifyListeners();
@@ -271,14 +267,21 @@ class AuthService extends ChangeNotifier {
     }
 
     try {
-      await _firestore.collection('users').doc(_user!.uid).update({
+      // Use set with merge to create document if it doesn't exist
+      await _firestore.collection('users').doc(_user!.uid).set({
         'preferences': preferences,
-      });
+        'email': _user!.email,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
       print('Preferences updated successfully for user: ${_user!.email}');
+
+      // Refresh user data after update
+      await _fetchAndStoreUserData(_user!.uid);
+
       return true;
     } catch (e) {
-      print(
-          'Failed to update preferences for user: ${_user!.email}. Error: $e');
+      print('Failed to update preferences for user: ${_user!.email}. Error: $e');
       _errorMessage = e.toString();
       notifyListeners();
       return false;
