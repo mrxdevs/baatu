@@ -61,6 +61,7 @@ dependencies:
   flutter_local_notifications: ^19.4.2
   google_sign_in: ^7.2.0
   font_awesome_flutter: ^10.10.0
+  flutter_dotenv: ^5.2.1
 
   # Remove contacts_service
   # contacts_service: ^0.6.3
@@ -118,4 +119,5 @@ flutter:
   assets:
     - assets/images/
     - assets/lottie/
+    - .env
     # - assets/images/logo.png

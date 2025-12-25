@@ -2,10 +2,11 @@ import 'package:baatu/services/google_sign_in.dart';
 import 'package:baatu/utils/app_config.dart';
 import 'package:baatu/utils/get_package_details.dart';
 import 'package:baatu/utils/route_helper.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/splash_screen.dart';
 import 'utils/app_styles.dart';
 import 'services/auth_service.dart';
@@ -13,6 +14,10 @@ import 'screens/share_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables from .env file
+  await dotenv.load(fileName: ".env");
+
   await Firebase.initializeApp();
 
   // await FirebaseAppCheck.instance.activate(
@@ -63,8 +68,7 @@ class _MyAppState extends State<MyApp> {
               backgroundColor: AppStyles.primaryColor,
               elevation: 0,
               centerTitle: true,
-              titleTextStyle: TextStyle(
-                  color: Colors.white, fontSize: 20, fontFamily: "Poppins"
+              titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontFamily: "Poppins"
                   // fontWeight: FontWeight.bold,
                   ),
               iconTheme: IconThemeData(
