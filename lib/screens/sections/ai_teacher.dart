@@ -5,6 +5,7 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:avatar_glow/avatar_glow.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../core/config/env_config.dart';
+import '../../utils/app_styles.dart';
 
 class AiTeacherScreen extends StatefulWidget {
   const AiTeacherScreen({super.key});
@@ -351,7 +352,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
+      backgroundColor: AppStyles.backgroundColor,
       appBar: AppBar(
         title: const Text(
           'AI English Teacher',
@@ -360,7 +361,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
             color: Colors.white,
           ),
         ),
-        backgroundColor: const Color(0xFF1D1E33),
+        backgroundColor: AppStyles.primaryColor,
         elevation: 0,
         actions: [
           if (_isSpeaking)
@@ -371,18 +372,23 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
             ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
           // Avatar Section
-          _buildAvatarSection(),
-
-          // Chat Messages
-          Expanded(
-            child: _buildChatSection(),
+          Positioned.fill(
+            child: Align(alignment: Alignment.center, child: _buildAvatarSection()),
           ),
+          Column(
+            children: [
+              // Chat Messages
+              Expanded(
+                child: _buildChatSection(),
+              ),
 
-          // Input Section
-          _buildInputSection(),
+              // Input Section
+              _buildInputSection(),
+            ],
+          ),
         ],
       ),
     );
@@ -392,14 +398,14 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF1D1E33),
-            const Color(0xFF0A0E21),
-          ],
-        ),
+        // color: Colors.white,
+        boxShadow: [
+          // BoxShadow(
+          //   color: Colors.black.withOpacity(0.05),
+          //   blurRadius: 10,
+          //   offset: const Offset(0, 2),
+          // ),
+        ],
       ),
       child: Column(
         children: [
@@ -422,6 +428,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
               color: _getAvatarGlowColor(),
               fontSize: 14,
               fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
             ),
           ),
         ],
@@ -436,7 +443,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
         return Icon(
           Icons.menu_book,
           size: 60,
-          color: Colors.teal.shade300,
+          color: AppStyles.primaryColor,
         );
       case AvatarState.listening:
         return RotationTransition(
@@ -444,14 +451,14 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
           child: Icon(
             Icons.lightbulb,
             size: 60,
-            color: Colors.orange.shade300,
+            color: Colors.orange.shade600,
           ),
         );
       case AvatarState.speaking:
         return Icon(
           Icons.school,
           size: 60,
-          color: Colors.green.shade300,
+          color: Colors.green.shade600,
         );
     }
   }
@@ -459,11 +466,11 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   Color _getAvatarGlowColor() {
     switch (_avatarState) {
       case AvatarState.idle:
-        return Colors.teal;
+        return AppStyles.primaryColor;
       case AvatarState.listening:
-        return Colors.orange;
+        return Colors.orange.shade600;
       case AvatarState.speaking:
-        return Colors.green;
+        return Colors.green.shade600;
     }
   }
 
@@ -480,9 +487,9 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
 
   Widget _buildChatSection() {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A0E21),
-      ),
+      decoration: BoxDecoration(
+          // color: AppStyles.backgroundColor,
+          ),
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
@@ -513,8 +520,8 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isUser
-                ? [Colors.teal.shade600, Colors.teal.shade700]
-                : [const Color(0xFF1D1E33), const Color(0xFF2A2D4A)],
+                ? [AppStyles.primaryColor, AppStyles.primaryColor.withOpacity(0.8)]
+                : [Colors.grey.shade100, Colors.grey.shade200],
           ),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
@@ -524,9 +531,9 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -538,18 +545,20 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
             else
               Text(
                 message.text,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: isUser ? Colors.white : Colors.black87,
                   fontSize: 15,
                   height: 1.4,
+                  fontFamily: 'Poppins',
                 ),
               ),
             const SizedBox(height: 4),
             Text(
               _formatTime(message.timestamp),
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: isUser ? Colors.white70 : Colors.black54,
                 fontSize: 11,
+                fontFamily: 'Poppins',
               ),
             ),
           ],
@@ -564,9 +573,10 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
         TypewriterAnimatedText(
           text,
           textStyle: const TextStyle(
-            color: Colors.white,
+            color: Colors.black87,
             fontSize: 15,
             height: 1.4,
+            fontFamily: 'Poppins',
           ),
           speed: const Duration(milliseconds: 50),
         ),
@@ -583,7 +593,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1D1E33),
+          color: Colors.grey.shade100,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -594,15 +604,16 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
               height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.teal.shade300),
+                valueColor: AlwaysStoppedAnimation<Color>(AppStyles.primaryColor),
               ),
             ),
             const SizedBox(width: 12),
             const Text(
               'Nancy is thinking...',
               style: TextStyle(
-                color: Colors.white70,
+                color: Colors.black87,
                 fontSize: 14,
+                fontFamily: 'Poppins',
               ),
             ),
           ],
@@ -615,11 +626,11 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1D1E33),
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
             offset: const Offset(0, -2),
           ),
         ],
@@ -630,12 +641,12 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
             Expanded(
               child: TextField(
                 controller: _messageController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Colors.black87, fontFamily: 'Poppins'),
                 decoration: InputDecoration(
                   hintText: 'Ask about grammar, pronunciation, vocabulary...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                  hintStyle: TextStyle(color: Colors.grey.shade500, fontFamily: 'Poppins'),
                   filled: true,
-                  fillColor: const Color(0xFF0A0E21),
+                  fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
@@ -669,12 +680,13 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
                   gradient: LinearGradient(
                     colors: _isListening
                         ? [Colors.red.shade600, Colors.red.shade700]
-                        : [Colors.orange.shade600, Colors.orange.shade700],
+                        : [AppStyles.secondaryColor, AppStyles.secondaryColor.withOpacity(0.8)],
                   ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: (_isListening ? Colors.red : Colors.orange).withOpacity(0.5),
+                      color:
+                          (_isListening ? Colors.red : AppStyles.secondaryColor).withOpacity(0.3),
                       blurRadius: _isListening ? 12 : 8,
                       offset: const Offset(0, 2),
                     ),
@@ -683,7 +695,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
                 child: IconButton(
                   icon: Icon(
                     _isListening ? Icons.mic : Icons.mic_none,
-                    color: Colors.white,
+                    color: _isListening ? Colors.white : AppStyles.primaryColor,
                   ),
                   onPressed: _toggleListening,
                   tooltip: _isListening ? 'Stop listening' : 'Start voice input',
@@ -694,12 +706,12 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.teal.shade600, Colors.teal.shade700],
+                  colors: [AppStyles.primaryColor, AppStyles.primaryColor.withOpacity(0.8)],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.teal.withOpacity(0.5),
+                    color: AppStyles.primaryColor.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
