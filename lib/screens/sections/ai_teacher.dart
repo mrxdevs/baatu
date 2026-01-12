@@ -237,13 +237,15 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       onStatus: (status) {
         debugPrint('Speech status: $status');
         if (status == 'done' || status == 'notListening') {
-          if (mounted) {
+          if (mounted && _isListening) {
+            final hadText = _messageController.text.isNotEmpty;
             setState(() {
               _isListening = false;
               if (_avatarState == AvatarState.listening && !_isLoading) {
                 _avatarState = AvatarState.idle;
               }
             });
+            debugPrint('Speech ended, had text: $hadText');
           }
         }
       },
@@ -274,6 +276,12 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   }
 
   Future<void> _startListening() async {
+    // Prevent double-start issues
+    if (_isListening) {
+      debugPrint('Already listening, ignoring start request');
+      return;
+    }
+
     if (!_speechAvailable) {
       _showError('Speech recognition not available. Please check your device settings.');
       return;
@@ -281,6 +289,11 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
 
     if (_isSpeaking) {
       await _stopSpeaking();
+    }
+
+    // Ensure clean state before starting
+    if (_speechToText.isListening) {
+      await _speechToText.stop();
     }
 
     setState(() {
@@ -291,29 +304,38 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
 
     debugPrint('Starting speech recognition...');
 
-    await _speechToText.listen(
-      onResult: (result) {
-        setState(() {
-          _messageController.text = result.recognizedWords;
-          _messageController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _messageController.text.length),
-          );
-        });
-
-        if (result.finalResult && _messageController.text.isNotEmpty) {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (!_isListening) {
-              _sendMessage();
-            }
+    try {
+      await _speechToText.listen(
+        onResult: (result) {
+          setState(() {
+            _messageController.text = result.recognizedWords;
+            _messageController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _messageController.text.length),
+            );
           });
-        }
-      },
-      listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 3),
-      partialResults: true,
-      localeId: 'en_US',
-      cancelOnError: true,
-    );
+
+          if (result.finalResult && _messageController.text.isNotEmpty) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (!_isListening && _messageController.text.isNotEmpty) {
+                _sendMessage();
+              }
+            });
+          }
+        },
+        listenFor: const Duration(seconds: 60), // Increased from 30s
+        pauseFor: const Duration(seconds: 5), // Increased from 3s for longer pauses
+        partialResults: true,
+        localeId: 'en_US',
+        cancelOnError: false, // Don't auto-cancel on errors
+        listenMode: stt.ListenMode.dictation, // Better for longer speech
+      );
+    } catch (e) {
+      debugPrint('Speech listen error: $e');
+      setState(() {
+        _isListening = false;
+        _avatarState = AvatarState.idle;
+      });
+    }
   }
 
   Future<void> _stopListening() async {
@@ -692,89 +714,95 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   }
 
   Widget _buildInteractiveAvatar() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Outer glow rings
-        if (_isSpeaking || _isListening) ...[
-          AnimatedBuilder(
-            animation: _waveAnimation,
-            builder: (context, child) {
-              return Container(
-                width: 180 + (_waveAnimation.value * 40),
-                height: 180 + (_waveAnimation.value * 40),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _getAvatarColor().withOpacity(0.3 - (_waveAnimation.value * 0.3)),
-                    width: 2,
+    // Fixed size container to prevent animation from causing layout shifts
+    return SizedBox(
+      width: 220,
+      height: 220,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none, // Allow glow to extend beyond bounds
+        children: [
+          // Outer glow rings
+          if (_isSpeaking || _isListening) ...[
+            AnimatedBuilder(
+              animation: _waveAnimation,
+              builder: (context, child) {
+                return Container(
+                  width: 180 + (_waveAnimation.value * 40),
+                  height: 180 + (_waveAnimation.value * 40),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _getAvatarColor().withOpacity(0.3 - (_waveAnimation.value * 0.3)),
+                      width: 2,
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-          AnimatedBuilder(
-            animation: _waveAnimation,
-            builder: (context, child) {
-              return Container(
-                width: 160 + (_waveAnimation.value * 60),
-                height: 160 + (_waveAnimation.value * 60),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _getAvatarColor().withOpacity(0.2 - (_waveAnimation.value * 0.2)),
-                    width: 1.5,
+                );
+              },
+            ),
+            AnimatedBuilder(
+              animation: _waveAnimation,
+              builder: (context, child) {
+                return Container(
+                  width: 160 + (_waveAnimation.value * 60),
+                  height: 160 + (_waveAnimation.value * 60),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _getAvatarColor().withOpacity(0.2 - (_waveAnimation.value * 0.2)),
+                      width: 1.5,
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-        ],
+                );
+              },
+            ),
+          ],
 
-        // Main avatar container
-        Container(
-          width: 140,
-          height: 140,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _getAvatarColor().withOpacity(0.3),
-                _getAvatarColor().withOpacity(0.1),
+          // Main avatar container
+          Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _getAvatarColor().withOpacity(0.3),
+                  _getAvatarColor().withOpacity(0.1),
+                ],
+              ),
+              border: Border.all(
+                color: _getAvatarColor().withOpacity(0.5),
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _getAvatarColor().withOpacity(0.4),
+                  blurRadius: 30,
+                  spreadRadius: 5,
+                ),
               ],
             ),
-            border: Border.all(
-              color: _getAvatarColor().withOpacity(0.5),
-              width: 3,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _getAvatarColor().withOpacity(0.4),
-                blurRadius: 30,
-                spreadRadius: 5,
-              ),
-            ],
-          ),
-          child: ClipOval(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                alignment: Alignment.center,
-                child: _buildAvatarContent(),
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  alignment: Alignment.center,
+                  child: _buildAvatarContent(),
+                ),
               ),
             ),
           ),
-        ),
 
-        // Sound wave bars for speaking state
-        if (_isSpeaking)
-          Positioned(
-            bottom: 20,
-            child: _buildSoundWaves(),
-          ),
-      ],
+          // Sound wave bars for speaking state
+          if (_isSpeaking)
+            Positioned(
+              bottom: 20,
+              child: _buildSoundWaves(),
+            ),
+        ],
+      ),
     );
   }
 
@@ -1128,12 +1156,21 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Microphone button
+                // Microphone button - tap to toggle
                 if (_speechAvailable)
                   _buildActionButton(
                     icon: _isListening ? Icons.mic : Icons.mic_none,
                     color: _isListening ? const Color(0xFFFF6B6B) : const Color(0xFF00D9FF),
-                    onTap: _toggleListening,
+                    onTap: () {
+                      if (_isListening) {
+                        _stopListening();
+                        if (_messageController.text.isNotEmpty) {
+                          _sendMessage();
+                        }
+                      } else {
+                        _startListening();
+                      }
+                    },
                     isActive: _isListening,
                   ),
                 const SizedBox(width: 8),
