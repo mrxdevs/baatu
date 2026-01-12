@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -41,6 +42,12 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with TickerProviderSt
   bool _isLoading = false;
   bool _isSpeaking = false;
   AvatarState _avatarState = AvatarState.idle;
+
+  // Word-by-word highlighting
+  int _currentWordIndex = 0;
+  List<String> _currentSpeakingWords = [];
+  String _currentSpeakingText = '';
+  Timer? _wordTimer;
 
   @override
   void initState() {
@@ -174,17 +181,53 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
     });
 
     _flutterTts.setCompletionHandler(() {
+      // Show last word briefly before clearing
+      if (_currentSpeakingWords.isNotEmpty) {
+        setState(() {
+          _currentWordIndex = _currentSpeakingWords.length - 1;
+        });
+      }
+      // Delay slightly then clear
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _stopWordTimer();
+        if (mounted) {
+          setState(() {
+            _isSpeaking = false;
+            _avatarState = AvatarState.idle;
+          });
+        }
+      });
+    });
+
+    _flutterTts.setErrorHandler((msg) {
+      _stopWordTimer();
       setState(() {
         _isSpeaking = false;
         _avatarState = AvatarState.idle;
       });
     });
 
-    _flutterTts.setErrorHandler((msg) {
-      setState(() {
-        _isSpeaking = false;
-        _avatarState = AvatarState.idle;
-      });
+    // Progress handler for exact word tracking (Android)
+    _flutterTts.setProgressHandler((text, start, end, word) {
+      if (mounted && _currentSpeakingText.isNotEmpty) {
+        // Cancel timer - we're using real progress
+        _wordTimer?.cancel();
+
+        // Find which word index corresponds to this position
+        int charCount = 0;
+        for (int i = 0; i < _currentSpeakingWords.length; i++) {
+          final wordEnd = charCount + _currentSpeakingWords[i].length;
+          if (start >= charCount && start < wordEnd + 1) {
+            if (_currentWordIndex != i) {
+              setState(() {
+                _currentWordIndex = i;
+              });
+            }
+            break;
+          }
+          charCount = wordEnd + 1; // +1 for space
+        }
+      }
     });
   }
 
@@ -369,12 +412,55 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   Future<void> _speak(String text) async {
     if (_isSpeaking) {
       await _flutterTts.stop();
+      _stopWordTimer();
     }
+
+    // Setup word-by-word highlighting
+    final words = text.split(RegExp(r'\s+'));
+    setState(() {
+      _currentSpeakingText = text;
+      _currentSpeakingWords = words;
+      _currentWordIndex = 0;
+    });
+
+    // Start timer as fallback for devices without progress handler
+    _advanceToNextWord();
+
     await _flutterTts.speak(text);
+  }
+
+  void _advanceToNextWord() {
+    if (_currentWordIndex >= _currentSpeakingWords.length - 1) {
+      return;
+    }
+
+    // Simple fixed interval - progress handler or completion will sync
+    // At speech rate 0.45, average ~3.5 words/sec = ~285ms per word
+    const wordInterval = Duration(milliseconds: 280);
+
+    _wordTimer = Timer(wordInterval, () {
+      if (mounted && _currentWordIndex < _currentSpeakingWords.length - 1) {
+        setState(() {
+          _currentWordIndex++;
+        });
+        _advanceToNextWord(); // Schedule next word
+      }
+    });
+  }
+
+  void _stopWordTimer() {
+    _wordTimer?.cancel();
+    _wordTimer = null;
+    setState(() {
+      _currentWordIndex = 0;
+      _currentSpeakingWords = [];
+      _currentSpeakingText = '';
+    });
   }
 
   Future<void> _stopSpeaking() async {
     await _flutterTts.stop();
+    _stopWordTimer();
     setState(() {
       _isSpeaking = false;
       _avatarState = AvatarState.idle;
@@ -872,22 +958,51 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   }
 
   Widget _buildAnimatedText(String text) {
-    // Simple whole-message highlighting while speaking
-    // No sync issues - entire message highlighted until TTS completes
-    return Text(
-      text,
-      style: TextStyle(
-        color: const Color(0xFF4ECDC4), // Speaking theme color (teal)
-        fontSize: 15,
-        height: 1.5,
-        fontFamily: 'Poppins',
-        fontWeight: FontWeight.w500,
-        shadows: [
-          Shadow(
-            color: const Color(0xFF4ECDC4).withOpacity(0.5),
-            blurRadius: 8,
-          ),
-        ],
+    // Show word-by-word highlighting
+    if (_currentSpeakingWords.isEmpty) {
+      return Text(
+        text,
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.95),
+          fontSize: 15,
+          height: 1.5,
+          fontFamily: 'Poppins',
+        ),
+      );
+    }
+
+    return RichText(
+      text: TextSpan(
+        children: _currentSpeakingWords.asMap().entries.map((entry) {
+          final index = entry.key;
+          final word = entry.value;
+          final isCurrentWord = index == _currentWordIndex;
+          final isSpoken = index < _currentWordIndex;
+
+          return TextSpan(
+            text: word + (index < _currentSpeakingWords.length - 1 ? ' ' : ''),
+            style: TextStyle(
+              color: isCurrentWord
+                  ? const Color(0xFF4ECDC4) // Highlighted word (teal)
+                  : isSpoken
+                      ? Colors.white.withOpacity(0.9) // Already spoken
+                      : Colors.white.withOpacity(0.4), // Not yet spoken
+              fontSize: 15,
+              height: 1.5,
+              fontFamily: 'Poppins',
+              fontWeight: isCurrentWord ? FontWeight.w600 : FontWeight.normal,
+              backgroundColor: isCurrentWord ? const Color(0xFF4ECDC4).withOpacity(0.15) : null,
+              shadows: isCurrentWord
+                  ? [
+                      Shadow(
+                        color: const Color(0xFF4ECDC4).withOpacity(0.6),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+          );
+        }).toList(),
       ),
     );
   }
