@@ -1,8 +1,8 @@
+import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:animated_text_kit/animated_text_kit.dart';
-import 'package:avatar_glow/avatar_glow.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../core/config/env_config.dart';
 import '../../utils/app_styles.dart';
@@ -14,11 +14,15 @@ class AiTeacherScreen extends StatefulWidget {
   State<AiTeacherScreen> createState() => _AiTeacherScreenState();
 }
 
-class _AiTeacherScreenState extends State<AiTeacherScreen> with SingleTickerProviderStateMixin {
+class _AiTeacherScreenState extends State<AiTeacherScreen> with TickerProviderStateMixin {
   // Controllers
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  late AnimationController _avatarController;
+  late AnimationController _pulseController;
+  late AnimationController _waveController;
+  late AnimationController _rotationController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _waveAnimation;
 
   // Gemini AI
   late GenerativeModel _model;
@@ -41,12 +45,9 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
     _initializeAI();
     _initializeTTS();
-    _avatarController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
 
     // Initialize speech after first frame to avoid crashes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,6 +56,32 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with SingleTickerProv
 
     // Add welcome message
     _addWelcomeMessage();
+  }
+
+  void _initializeAnimations() {
+    // Pulse animation for the avatar
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    // Wave animation for speaking state
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat();
+
+    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_waveController);
+
+    // Rotation animation
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    )..repeat();
   }
 
   void _initializeAI() {
@@ -105,9 +132,39 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
 
   void _initializeTTS() async {
     await _flutterTts.setLanguage('en-US');
-    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setSpeechRate(0.45); // Slightly faster for natural pacing
     await _flutterTts.setVolume(1.0);
-    await _flutterTts.setPitch(1.0);
+    await _flutterTts.setPitch(0.95); // Slightly lower for warmer female voice
+
+    // Set voice quality for more natural sound
+    await _flutterTts.setQueueMode(1); // Queue mode for smoother transitions
+
+    // Try to get a more natural voice if available
+    List<dynamic>? voices = await _flutterTts.getVoices;
+    if (voices != null) {
+      // Look for a more natural female voice
+      var preferredVoice = voices.firstWhere(
+        (voice) =>
+            voice['name'].toString().toLowerCase().contains('enhanced') ||
+            voice['name'].toString().toLowerCase().contains('premium') ||
+            voice['name'].toString().toLowerCase().contains('wavenet') ||
+            voice['name'].toString().toLowerCase().contains('neural'),
+        orElse: () => voices.firstWhere(
+          (voice) =>
+              voice['name'].toString().toLowerCase().contains('female') ||
+              voice['name'].toString().toLowerCase().contains('samantha'),
+          orElse: () => null,
+        ),
+      );
+
+      if (preferredVoice != null) {
+        await _flutterTts.setVoice({
+          'name': preferredVoice['name'],
+          'locale': preferredVoice['locale'] ?? 'en-US',
+        });
+        debugPrint('Using voice: ${preferredVoice['name']}');
+      }
+    }
 
     _flutterTts.setStartHandler(() {
       setState(() {
@@ -149,15 +206,12 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       },
       onError: (error) {
         debugPrint('Speech error: ${error.errorMsg}');
-        // Don't show errors for common issues like no_match or listen_failed
-        // These are normal when user doesn't speak or there's background noise
         if (mounted) {
           setState(() {
             _isListening = false;
             _avatarState = AvatarState.idle;
           });
 
-          // Only show error for serious issues
           if (error.errorMsg != 'error_no_match' &&
               error.errorMsg != 'error_listen_failed' &&
               error.errorMsg != 'error_speech_timeout') {
@@ -182,7 +236,6 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       return;
     }
 
-    // Stop any ongoing TTS
     if (_isSpeaking) {
       await _stopSpeaking();
     }
@@ -204,7 +257,6 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
           );
         });
 
-        // Auto-send when speech is finalized
         if (result.finalResult && _messageController.text.isNotEmpty) {
           Future.delayed(const Duration(milliseconds: 500), () {
             if (!_isListening) {
@@ -242,7 +294,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   void _addWelcomeMessage() {
     final welcomeMessage = ChatMessage(
       text:
-          "Hello! I'm Nancy, your English teacher! � I'm here to help you improve your English speaking skills. What would you like to practice today?",
+          "Hello! I'm Nancy, your English teacher! 📚 I'm here to help you improve your English speaking skills. What would you like to practice today?",
       isUser: false,
       timestamp: DateTime.now(),
     );
@@ -251,7 +303,6 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       _messages.add(welcomeMessage);
     });
 
-    // Speak welcome message
     _speak(welcomeMessage.text);
   }
 
@@ -268,7 +319,11 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
     final message = _messageController.text.trim();
     if (message.isEmpty || _isLoading) return;
 
-    // Add user message
+    // Stop listening if active
+    if (_isListening) {
+      await _stopListening();
+    }
+
     final userMessage = ChatMessage(
       text: message,
       isUser: true,
@@ -278,14 +333,14 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
     setState(() {
       _messages.add(userMessage);
       _isLoading = true;
-      _avatarState = AvatarState.listening;
+      _isListening = false; // Ensure mic is off
+      _avatarState = AvatarState.thinking;
       _messageController.clear();
     });
 
     _scrollToBottom();
 
     try {
-      // Get AI response
       final response = await _chatSession.sendMessage(Content.text(message));
       final responseText = response.text ?? 'Sorry, I couldn\'t generate a response.';
 
@@ -301,8 +356,6 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       });
 
       _scrollToBottom();
-
-      // Speak the response
       await _speak(responseText);
     } catch (e) {
       setState(() {
@@ -329,7 +382,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 300), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
@@ -344,7 +397,9 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _avatarController.dispose();
+    _pulseController.dispose();
+    _waveController.dispose();
+    _rotationController.dispose();
     _flutterTts.stop();
     super.dispose();
   }
@@ -352,147 +407,376 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppStyles.backgroundColor,
+      extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
         title: const Text(
-          'AI English Teacher',
+          'Nancy - AI Teacher',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
+            fontSize: 20,
           ),
         ),
-        backgroundColor: AppStyles.primaryColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.3),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
         actions: [
           if (_isSpeaking)
-            IconButton(
-              icon: const Icon(Icons.stop_circle, color: Colors.red),
-              onPressed: _stopSpeaking,
-              tooltip: 'Stop Speaking',
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.stop_circle, color: Colors.red),
+                onPressed: _stopSpeaking,
+                tooltip: 'Stop Speaking',
+              ),
             ),
         ],
       ),
-      body: Stack(
-        children: [
-          // Avatar Section
-          Positioned.fill(
-            child: Align(alignment: Alignment.center, child: _buildAvatarSection()),
-          ),
-          Column(
-            children: [
-              // Chat Messages
-              Expanded(
-                child: _buildChatSection(),
-              ),
-
-              // Input Section
-              _buildInputSection(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0A0E21),
+              Color(0xFF1A1F38),
+              Color(0xFF0A0E21),
             ],
           ),
-        ],
+        ),
+        child: Stack(
+          children: [
+            // Background animated circles
+            ..._buildBackgroundCircles(),
+
+            // Avatar in CENTER BACKGROUND - Fixed position
+            Positioned.fill(
+              child: Center(
+                child: _buildAvatarSection(),
+              ),
+            ),
+
+            // Chat Messages - ON TOP of avatar, scrollable
+            Positioned.fill(
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    // Chat takes most space
+                    Expanded(
+                      child: _buildChatSection(),
+                    ),
+                    // Input at bottom with minimal padding
+                    _buildInputSection(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  List<Widget> _buildBackgroundCircles() {
+    return [
+      Positioned(
+        top: -100,
+        right: -100,
+        child: AnimatedBuilder(
+          animation: _rotationController,
+          builder: (context, child) {
+            return Transform.rotate(
+              angle: _rotationController.value * 2 * math.pi,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      _getAvatarColor().withOpacity(0.15),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      Positioned(
+        bottom: 100,
+        left: -50,
+        child: Container(
+          width: 200,
+          height: 200,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                Colors.purple.withOpacity(0.1),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildAvatarSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        // color: Colors.white,
-        boxShadow: [
-          // BoxShadow(
-          //   color: Colors.black.withOpacity(0.05),
-          //   blurRadius: 10,
-          //   offset: const Offset(0, 2),
-          // ),
-        ],
-      ),
+    return GestureDetector(
+      onTap: () {
+        if (_isSpeaking) {
+          _stopSpeaking();
+        } else if (!_isListening && !_isLoading) {
+          _toggleListening();
+        }
+      },
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Avatar with glow effect
-          AvatarGlow(
-            glowColor: _getAvatarGlowColor(),
-            glowRadiusFactor: _isSpeaking ? 0.6 : 0.3,
-            child: CircleAvatar(
-              radius: 60,
-              backgroundColor: const Color(0xFF1D1E33),
-              child: _buildAvatarAnimation(),
-            ),
+          // Avatar with dynamic effects
+          AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _isSpeaking ? _pulseAnimation.value : 1.0,
+                child: _buildInteractiveAvatar(),
+              );
+            },
           ),
           const SizedBox(height: 12),
 
-          // Status Text
-          Text(
-            _getStatusText(),
-            style: TextStyle(
-              color: _getAvatarGlowColor(),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Poppins',
+          // Status Text with animation
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Text(
+              _getStatusText(),
+              key: ValueKey(_avatarState),
+              style: TextStyle(
+                color: _getAvatarColor(),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Poppins',
+                shadows: [
+                  Shadow(
+                    color: _getAvatarColor().withOpacity(0.5),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
             ),
           ),
+
+          // Tap hint
+          if (_avatarState == AvatarState.idle)
+            Text(
+              'Tap to speak',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.4),
+                fontSize: 11,
+                fontFamily: 'Poppins',
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildAvatarAnimation() {
-    // Use different animations based on state
-    switch (_avatarState) {
-      case AvatarState.idle:
-        return Icon(
-          Icons.menu_book,
-          size: 60,
-          color: AppStyles.primaryColor,
-        );
-      case AvatarState.listening:
-        return RotationTransition(
-          turns: _avatarController,
-          child: Icon(
-            Icons.lightbulb,
-            size: 60,
-            color: Colors.orange.shade600,
+  Widget _buildInteractiveAvatar() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Outer glow rings
+        if (_isSpeaking || _isListening) ...[
+          AnimatedBuilder(
+            animation: _waveAnimation,
+            builder: (context, child) {
+              return Container(
+                width: 180 + (_waveAnimation.value * 40),
+                height: 180 + (_waveAnimation.value * 40),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _getAvatarColor().withOpacity(0.3 - (_waveAnimation.value * 0.3)),
+                    width: 2,
+                  ),
+                ),
+              );
+            },
           ),
-        );
-      case AvatarState.speaking:
-        return Icon(
-          Icons.school,
-          size: 60,
-          color: Colors.green.shade600,
-        );
-    }
+          AnimatedBuilder(
+            animation: _waveAnimation,
+            builder: (context, child) {
+              return Container(
+                width: 160 + (_waveAnimation.value * 60),
+                height: 160 + (_waveAnimation.value * 60),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _getAvatarColor().withOpacity(0.2 - (_waveAnimation.value * 0.2)),
+                    width: 1.5,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+
+        // Main avatar container
+        Container(
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                _getAvatarColor().withOpacity(0.3),
+                _getAvatarColor().withOpacity(0.1),
+              ],
+            ),
+            border: Border.all(
+              color: _getAvatarColor().withOpacity(0.5),
+              width: 3,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _getAvatarColor().withOpacity(0.4),
+                blurRadius: 30,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                alignment: Alignment.center,
+                child: _buildAvatarContent(),
+              ),
+            ),
+          ),
+        ),
+
+        // Sound wave bars for speaking state
+        if (_isSpeaking)
+          Positioned(
+            bottom: 20,
+            child: _buildSoundWaves(),
+          ),
+      ],
+    );
   }
 
-  Color _getAvatarGlowColor() {
+  Widget _buildAvatarContent() {
+    IconData iconData;
+    double iconSize = 60;
+
     switch (_avatarState) {
       case AvatarState.idle:
-        return AppStyles.primaryColor;
+        iconData = Icons.school_rounded;
+        break;
       case AvatarState.listening:
-        return Colors.orange.shade600;
+        iconData = Icons.mic_rounded;
+        break;
+      case AvatarState.thinking:
+        iconData = Icons.psychology_rounded;
+        break;
       case AvatarState.speaking:
-        return Colors.green.shade600;
+        iconData = Icons.record_voice_over_rounded;
+        break;
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: Icon(
+        iconData,
+        key: ValueKey(_avatarState),
+        size: iconSize,
+        color: _getAvatarColor(),
+      ),
+    );
+  }
+
+  Widget _buildSoundWaves() {
+    return AnimatedBuilder(
+      animation: _waveAnimation,
+      builder: (context, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(5, (index) {
+            final offset = (index - 2).abs() * 0.15;
+            final height = 8.0 + (math.sin((_waveAnimation.value + offset) * math.pi * 2) * 8);
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              width: 4,
+              height: height,
+              decoration: BoxDecoration(
+                color: _getAvatarColor(),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  Color _getAvatarColor() {
+    switch (_avatarState) {
+      case AvatarState.idle:
+        return const Color(0xFF00D9FF);
+      case AvatarState.listening:
+        return const Color(0xFFFF6B6B);
+      case AvatarState.thinking:
+        return const Color(0xFFFFE66D);
+      case AvatarState.speaking:
+        return const Color(0xFF4ECDC4);
     }
   }
 
   String _getStatusText() {
     switch (_avatarState) {
       case AvatarState.idle:
-        return 'Ready to learn!';
+        return '✨ Ready to learn!';
       case AvatarState.listening:
-        return 'Thinking...';
+        return '🎤 Listening...';
+      case AvatarState.thinking:
+        return '🤔 Thinking...';
       case AvatarState.speaking:
-        return 'Teaching...';
+        return '🗣️ Speaking...';
     }
   }
 
   Widget _buildChatSection() {
     return Container(
-      decoration: BoxDecoration(
-          // color: AppStyles.backgroundColor,
-          ),
       child: ListView.builder(
         controller: _scrollController,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: _messages.length + (_isLoading ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == _messages.length && _isLoading) {
@@ -513,76 +797,98 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
+          maxWidth: MediaQuery.of(context).size.width * 0.8,
         ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isUser
-                ? [AppStyles.primaryColor, AppStyles.primaryColor.withOpacity(0.8)]
-                : [Colors.grey.shade100, Colors.grey.shade200],
-          ),
+        child: ClipRRect(
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isUser ? 16 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 16),
+            topLeft: const Radius.circular(20),
+            topRight: const Radius.circular(20),
+            bottomLeft: Radius.circular(isUser ? 20 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 20),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!isUser && message == _messages.last && _isSpeaking)
-              _buildAnimatedText(message.text)
-            else
-              Text(
-                message.text,
-                style: TextStyle(
-                  color: isUser ? Colors.white : Colors.black87,
-                  fontSize: 15,
-                  height: 1.4,
-                  fontFamily: 'Poppins',
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isUser
+                      ? [
+                          AppStyles.primaryColor.withOpacity(0.6),
+                          AppStyles.primaryColor.withOpacity(0.3),
+                        ]
+                      : [
+                          Colors.white.withOpacity(0.15),
+                          Colors.white.withOpacity(0.08),
+                        ],
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  bottomLeft: Radius.circular(isUser ? 20 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 20),
+                ),
+                border: Border.all(
+                  color: isUser
+                      ? AppStyles.primaryColor.withOpacity(0.3)
+                      : Colors.white.withOpacity(0.1),
+                  width: 1,
                 ),
               ),
-            const SizedBox(height: 4),
-            Text(
-              _formatTime(message.timestamp),
-              style: TextStyle(
-                color: isUser ? Colors.white70 : Colors.black54,
-                fontSize: 11,
-                fontFamily: 'Poppins',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isUser && message == _messages.last && _isSpeaking)
+                    _buildAnimatedText(message.text)
+                  else
+                    Text(
+                      message.text,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.95),
+                        fontSize: 15,
+                        height: 1.5,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _formatTime(message.timestamp),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 11,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildAnimatedText(String text) {
-    return AnimatedTextKit(
-      animatedTexts: [
-        TypewriterAnimatedText(
-          text,
-          textStyle: const TextStyle(
-            color: Colors.black87,
-            fontSize: 15,
-            height: 1.4,
-            fontFamily: 'Poppins',
+    // Simple whole-message highlighting while speaking
+    // No sync issues - entire message highlighted until TTS completes
+    return Text(
+      text,
+      style: TextStyle(
+        color: const Color(0xFF4ECDC4), // Speaking theme color (teal)
+        fontSize: 15,
+        height: 1.5,
+        fontFamily: 'Poppins',
+        fontWeight: FontWeight.w500,
+        shadows: [
+          Shadow(
+            color: const Color(0xFF4ECDC4).withOpacity(0.5),
+            blurRadius: 8,
           ),
-          speed: const Duration(milliseconds: 50),
-        ),
-      ],
-      totalRepeatCount: 1,
-      displayFullTextOnTap: true,
+        ],
+      ),
     );
   }
 
@@ -591,147 +897,197 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppStyles.primaryColor),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        const Color(0xFFFFE66D),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Nancy is thinking...',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
-            const Text(
-              'Nancy is thinking...',
-              style: TextStyle(
-                color: Colors.black87,
-                fontSize: 14,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildInputSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white.withOpacity(0.08),
+                Colors.white.withOpacity(0.12),
+              ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                style: const TextStyle(color: Colors.black87, fontFamily: 'Poppins'),
-                decoration: InputDecoration(
-                  hintText: 'Ask about grammar, pronunciation, vocabulary...',
-                  hintStyle: TextStyle(color: Colors.grey.shade500, fontFamily: 'Poppins'),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                maxLines: null,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
-                onChanged: (text) {
-                  if (text.isNotEmpty && _avatarState == AvatarState.idle) {
-                    setState(() {
-                      _avatarState = AvatarState.listening;
-                    });
-                  } else if (text.isEmpty && _avatarState == AvatarState.listening) {
-                    setState(() {
-                      _avatarState = AvatarState.idle;
-                    });
-                  }
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Microphone button
-            if (_speechAvailable)
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: _isListening
-                        ? [Colors.red.shade600, Colors.red.shade700]
-                        : [AppStyles.secondaryColor, AppStyles.secondaryColor.withOpacity(0.8)],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          (_isListening ? Colors.red : AppStyles.secondaryColor).withOpacity(0.3),
-                      blurRadius: _isListening ? 12 : 8,
-                      offset: const Offset(0, 2),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1,
+                      ),
                     ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    _isListening ? Icons.mic : Icons.mic_none,
-                    color: _isListening ? Colors.white : AppStyles.primaryColor,
-                  ),
-                  onPressed: _toggleListening,
-                  tooltip: _isListening ? 'Stop listening' : 'Start voice input',
-                ),
-              ),
-            const SizedBox(width: 8),
-            // Send button
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppStyles.primaryColor, AppStyles.primaryColor.withOpacity(0.8)],
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppStyles.primaryColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    child: TextField(
+                      controller: _messageController,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Poppins',
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Type or tap the avatar to speak...',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(0.4),
+                          fontFamily: 'Poppins',
                         ),
-                      )
-                    : const Icon(Icons.send, color: Colors.white),
-                onPressed: _isLoading ? null : _sendMessage,
-              ),
+                        filled: false,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                      ),
+                      maxLines: null,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
+                      onChanged: (text) {
+                        if (text.isNotEmpty && _avatarState == AvatarState.idle) {
+                          setState(() {
+                            _avatarState = AvatarState.listening;
+                          });
+                        } else if (text.isEmpty &&
+                            _avatarState == AvatarState.listening &&
+                            !_isListening) {
+                          setState(() {
+                            _avatarState = AvatarState.idle;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Microphone button
+                if (_speechAvailable)
+                  _buildActionButton(
+                    icon: _isListening ? Icons.mic : Icons.mic_none,
+                    color: _isListening ? const Color(0xFFFF6B6B) : const Color(0xFF00D9FF),
+                    onTap: _toggleListening,
+                    isActive: _isListening,
+                  ),
+                const SizedBox(width: 8),
+                // Send button
+                _buildActionButton(
+                  icon: Icons.send_rounded,
+                  color: AppStyles.primaryColor,
+                  onTap: _isLoading ? null : _sendMessage,
+                  isLoading: _isLoading,
+                ),
+              ],
             ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    VoidCallback? onTap,
+    bool isActive = false,
+    bool isLoading = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              color.withOpacity(isActive ? 0.8 : 0.3),
+              color.withOpacity(isActive ? 0.6 : 0.1),
+            ],
+          ),
+          border: Border.all(
+            color: color.withOpacity(0.5),
+            width: 2,
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: isLoading
+              ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 22,
+                ),
         ),
       ),
     );
@@ -758,5 +1114,6 @@ class ChatMessage {
 enum AvatarState {
   idle,
   listening,
+  thinking,
   speaking,
 }

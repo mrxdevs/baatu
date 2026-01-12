@@ -99,8 +99,7 @@ class _WordsScreenState extends State<WordsScreen> {
                   color: const Color(0xFF8E4585),
                   child: GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 1,
                       crossAxisSpacing: 16,
@@ -122,8 +121,7 @@ class _WordsScreenState extends State<WordsScreen> {
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF8E4585)
-                                        .withOpacity(0.1),
+                                    color: const Color(0xFF8E4585).withOpacity(0.1),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),
@@ -135,8 +133,7 @@ class _WordsScreenState extends State<WordsScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF8E4585)
-                                          .withOpacity(0.1),
+                                      color: const Color(0xFF8E4585).withOpacity(0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
