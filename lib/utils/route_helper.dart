@@ -16,6 +16,7 @@ import 'package:baatu/screens/sections/grammar_screen.dart';
 import 'package:baatu/screens/sections/music_screen.dart';
 import 'package:baatu/screens/sections/videos_screen.dart';
 import 'package:baatu/screens/sections/words_screen.dart';
+import 'package:baatu/screens/sections/words_of_the_day_screen.dart';
 import 'package:baatu/screens/settings_screen.dart';
 import 'package:baatu/screens/splash_screen.dart';
 import 'package:baatu/testing_console/testing_screen.dart';
@@ -28,8 +29,7 @@ class RouteHelper {
     LoginScreen.routeName: (context) => const LoginScreen(),
     RegisterScreen.routeName: (context) => const RegisterScreen(),
     HomeNavigationScreen.routeName: (context) => const HomeNavigationScreen(),
-    LearningPreferencesScreen.routeName: (context) =>
-        const LearningPreferencesScreen(),
+    LearningPreferencesScreen.routeName: (context) => const LearningPreferencesScreen(),
     OtpVerificationScreen.routeName: (context) => const OtpVerificationScreen(),
     SuccessScreen.routeName: (context) => const SuccessScreen(),
     ChatConnectionScreen.routeName: (context) => const ChatConnectionScreen(),
@@ -40,6 +40,7 @@ class RouteHelper {
     SettingsScreen.routeName: (context) => const SettingsScreen(),
     VideosScreen.routeName: (context) => const VideosScreen(),
     WordsScreen.routeName: (context) => const WordsScreen(),
+    WordsOfTheDayScreen.routeName: (context) => const WordsOfTheDayScreen(),
     ChatScreen.routeName: (context) => const ChatScreen(),
     CallScreen.routeName: (context) => const CallScreen(
           callingWith: "",
