@@ -54,6 +54,8 @@
 		<string>App need camera to switch or video for this action.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>Allow access to the microphone to record audio.</string>
+<key>NSSpeechRecognitionUsageDescription</key>
+<string>This app needs speech recognition for interactive English learning and speaking practice.</string>
 		<key>UISupportedInterfaceOrientations~ipad</key>
 		<array>
 			<string>UIInterfaceOrientationPortrait</string>

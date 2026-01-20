@@ -1,4 +1,5 @@
 import 'package:baatu/screens/chat_screen.dart';
+import 'package:baatu/screens/sections/ai_teacher.dart';
 import 'package:flutter/material.dart';
 import 'package:baatu/screens/sections/words_screen.dart';
 import 'package:baatu/screens/sections/videos_screen.dart';
@@ -41,6 +42,10 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
       case 4:
         screen = const GrammarScreen();
         break;
+
+      case 5:
+        screen = const AiTeacherScreen();
+        break;
       default:
         return;
     }
@@ -77,10 +82,11 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
             mainAxisSpacing: 25,
             crossAxisSpacing: 25,
             children: [
+              _buildHexagonButton('AI Teacher', Icons.school, 5),
+              _buildHexagonButton('Chat', Icons.chat_bubble, 3),
               _buildHexagonButton('Words', Icons.abc, 0),
               _buildHexagonButton('Videos', Icons.play_arrow, 1),
               _buildHexagonButton('Music', Icons.music_note, 2),
-              _buildHexagonButton('Chat', Icons.chat_bubble, 3),
               _buildHexagonButton('Grammar', Icons.menu_book, 4),
             ],
           ),
@@ -198,8 +204,7 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color:
-              isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+          color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(icon, color: Colors.white, size: 24),
