@@ -41,6 +41,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with TickerProviderSt
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   bool _isSpeaking = false;
+  bool _isMuted = false; // Mute/unmute audio
   AvatarState _avatarState = AvatarState.idle;
 
   // Word-by-word highlighting
@@ -48,6 +49,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with TickerProviderSt
   List<String> _currentSpeakingWords = [];
   String _currentSpeakingText = '';
   Timer? _wordTimer;
+  bool _useProgressHandler = false; // Use real TTS progress when available
 
   @override
   void initState() {
@@ -210,8 +212,11 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
     // Progress handler for exact word tracking (Android)
     _flutterTts.setProgressHandler((text, start, end, word) {
       if (mounted && _currentSpeakingText.isNotEmpty) {
-        // Cancel timer - we're using real progress
-        _wordTimer?.cancel();
+        // We have real progress - stop using timer
+        if (!_useProgressHandler) {
+          _wordTimer?.cancel();
+          _useProgressHandler = true;
+        }
 
         // Find which word index corresponds to this position
         int charCount = 0;
@@ -440,6 +445,8 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
     // Setup word-by-word highlighting
     final words = text.split(RegExp(r'\s+'));
     setState(() {
+      _isSpeaking = true; // Set immediately for UI highlighting
+      _avatarState = AvatarState.speaking;
       _currentSpeakingText = text;
       _currentSpeakingWords = words;
       _currentWordIndex = 0;
@@ -448,6 +455,8 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
     // Start timer as fallback for devices without progress handler
     _advanceToNextWord();
 
+    // Set volume based on mute state and speak
+    await _flutterTts.setVolume(_isMuted ? 0.0 : 1.0);
     await _flutterTts.speak(text);
   }
 
@@ -456,12 +465,24 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       return;
     }
 
-    // Simple fixed interval - progress handler or completion will sync
-    // At speech rate 0.45, average ~3.5 words/sec = ~285ms per word
-    const wordInterval = Duration(milliseconds: 280);
+    // Don't use timer if progress handler is active
+    if (_useProgressHandler) return;
 
-    _wordTimer = Timer(wordInterval, () {
-      if (mounted && _currentWordIndex < _currentSpeakingWords.length - 1) {
+    // Calculate dynamic interval based on word length
+    // Base rate: At speech rate 0.45, roughly 2.5-3 words/sec
+    // Adjust timing based on word length (longer words = more time)
+    final currentWord = _currentSpeakingWords[_currentWordIndex];
+    final wordLength = currentWord.length;
+
+    // Estimate syllables (rough: 1 syllable per 2-3 letters, min 1)
+    final estimatedSyllables = (wordLength / 2.5).ceil().clamp(1, 6);
+
+    // Base time per syllable at speech rate 0.45 is ~120ms
+    // Add small buffer for natural pauses between words
+    final wordDuration = Duration(milliseconds: (estimatedSyllables * 120) + 60);
+
+    _wordTimer = Timer(wordDuration, () {
+      if (mounted && _currentWordIndex < _currentSpeakingWords.length - 1 && !_useProgressHandler) {
         setState(() {
           _currentWordIndex++;
         });
@@ -478,6 +499,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       _currentSpeakingWords = [];
       _currentSpeakingText = '';
     });
+    _useProgressHandler = false; // Reset for next speech
   }
 
   Future<void> _stopSpeaking() async {
@@ -487,6 +509,32 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       _isSpeaking = false;
       _avatarState = AvatarState.idle;
     });
+  }
+
+  void _toggleMute() {
+    setState(() {
+      _isMuted = !_isMuted;
+    });
+
+    // Update TTS volume
+    _flutterTts.setVolume(_isMuted ? 0.0 : 1.0);
+
+    if (_isMuted && _isSpeaking) {
+      // Stop current speech if muting while speaking
+      _flutterTts.stop();
+    }
+
+    debugPrint('Mute toggled: $_isMuted');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isMuted ? '🔇 Audio muted' : '🔊 Audio unmuted'),
+        backgroundColor: AppStyles.primaryColor,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   void _scrollToBottom() {
@@ -559,6 +607,22 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
                 tooltip: 'Stop Speaking',
               ),
             ),
+          // Mute/Unmute button
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: _isMuted ? Colors.orange.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: IconButton(
+              icon: Icon(
+                _isMuted ? Icons.volume_off : Icons.volume_up,
+                color: _isMuted ? Colors.orange : Colors.white70,
+              ),
+              onPressed: _toggleMute,
+              tooltip: _isMuted ? 'Unmute' : 'Mute',
+            ),
+          ),
         ],
       ),
       body: Container(
@@ -869,7 +933,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
       case AvatarState.thinking:
         return const Color(0xFFFFE66D);
       case AvatarState.speaking:
-        return const Color(0xFF4ECDC4);
+        return AppStyles.secondaryColor;
     }
   }
 
@@ -1011,7 +1075,7 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
             text: word + (index < _currentSpeakingWords.length - 1 ? ' ' : ''),
             style: TextStyle(
               color: isCurrentWord
-                  ? const Color(0xFF4ECDC4) // Highlighted word (teal)
+                  ? AppStyles.secondaryColor // Highlighted word (pink theme)
                   : isSpoken
                       ? Colors.white.withOpacity(0.9) // Already spoken
                       : Colors.white.withOpacity(0.4), // Not yet spoken
@@ -1019,11 +1083,11 @@ Remember: You're not just teaching - you're a supportive guide helping your stud
               height: 1.5,
               fontFamily: 'Poppins',
               fontWeight: isCurrentWord ? FontWeight.w600 : FontWeight.normal,
-              backgroundColor: isCurrentWord ? const Color(0xFF4ECDC4).withOpacity(0.15) : null,
+              backgroundColor: isCurrentWord ? AppStyles.secondaryColor.withOpacity(0.2) : null,
               shadows: isCurrentWord
                   ? [
                       Shadow(
-                        color: const Color(0xFF4ECDC4).withOpacity(0.6),
+                        color: AppStyles.primaryColor.withOpacity(0.6),
                         blurRadius: 8,
                       ),
                     ]
