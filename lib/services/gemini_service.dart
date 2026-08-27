@@ -8,9 +8,9 @@ class GeminiService {
   static const List<String> _models = [
     'gemini-2.5-flash',
     'gemini-2.5-pro',
-    'gemini-flash-latest',
-    'gemini-pro-latest',
     'gemini-3.5-flash',
+    'gemma-4-31b-it',
+    'gemini-flash-latest',
   ];
 
   final String _apiKey;
