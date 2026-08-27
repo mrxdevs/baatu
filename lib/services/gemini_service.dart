@@ -1,10 +1,18 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class GeminiService {
-  static const String _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+  // List of fallback models in order of priority when a model is overloaded (503 / 429)
+  static const List<String> _models = [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-flash-latest',
+    'gemini-pro-latest',
+    'gemini-3.5-flash',
+  ];
+
   final String _apiKey;
   final http.Client _client = http.Client();
 
@@ -41,7 +49,49 @@ Strict Teaching Rules:
 """;
   }
 
-  /// Gets a complete chat response from the Gemini API.
+  /// Sends a request with automatic multi-model failover and retry on 503 / 429 errors.
+  Future<http.Response?> _sendWithModelFallback(String requestBody) async {
+    for (int i = 0; i < _models.length; i++) {
+      final model = _models[i];
+      final url = 'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$_apiKey';
+
+      try {
+        final response = await _client
+            .post(
+              Uri.parse(url),
+              headers: {'Content-Type': 'application/json'},
+              body: requestBody,
+            )
+            .timeout(const Duration(seconds: 12));
+
+        // If successful, return immediately
+        if (response.statusCode == 200) {
+          return response;
+        }
+
+        // If 503 (High demand / overloaded) or 429 (Rate limit) or 500, log and try next model
+        if (response.statusCode == 503 ||
+            response.statusCode == 429 ||
+            response.statusCode == 500 ||
+            response.statusCode == 404) {
+          debugPrint('Gemini model $model returned ${response.statusCode}. Trying fallback model...');
+          // Brief pause before trying next candidate to prevent stampede
+          await Future.delayed(const Duration(milliseconds: 350));
+          continue;
+        }
+
+        // For other status codes, log and attempt next model
+        debugPrint('Gemini model $model returned status ${response.statusCode}: ${response.body}');
+      } on TimeoutException {
+        debugPrint('Gemini model $model timed out. Trying fallback model...');
+      } catch (e) {
+        debugPrint('Gemini model $model error: $e. Trying fallback model...');
+      }
+    }
+    return null;
+  }
+
+  /// Gets a complete chat response from the Gemini API with automatic model failover.
   Future<String> getChatResponse(
     String message,
     List<Map<String, String>> history, {
@@ -68,7 +118,7 @@ Strict Teaching Rules:
         }
       ];
 
-      // Add conversation history (limiting to recent 15 turns for optimal context & speed)
+      // Add recent history
       final recentHistory = history.length > 15 ? history.sublist(history.length - 15) : history;
       for (var msg in recentHistory) {
         String role = msg['role'] == 'user' ? 'user' : 'model';
@@ -80,7 +130,7 @@ Strict Teaching Rules:
         });
       }
 
-      // Add the current user's message
+      // Add current message
       contents.add({
         'role': 'user',
         'parts': [
@@ -93,17 +143,13 @@ Strict Teaching Rules:
         'generationConfig': {
           'temperature': 0.7,
           'topP': 0.95,
-          'maxOutputTokens': 500, // Ample tokens to complete sentence while prompt enforces <80 words
+          'maxOutputTokens': 500,
         },
       });
 
-      final response = await _client.post(
-        Uri.parse('$_baseUrl?key=$_apiKey'),
-        headers: {'Content-Type': 'application/json'},
-        body: requestBody,
-      );
+      final response = await _sendWithModelFallback(requestBody);
 
-      if (response.statusCode == 200) {
+      if (response != null && response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
 
         if (jsonResponse.containsKey('candidates') &&
@@ -120,16 +166,14 @@ Strict Teaching Rules:
           }
 
           return responseText.trim();
-        } else {
-          return "I'm here! What would you like to practice today?";
         }
-      } else {
-        debugPrint('Gemini API error: ${response.statusCode} - ${response.body}');
-        return "I'm having a little trouble connecting right now, but let's keep practicing! Could you try saying that again?";
       }
+
+      // Fallback friendly teacher response if all models are momentarily busy
+      return "I'm experiencing high server demand for a few moments, but I'm right here with you! 🌟 Let's try sending that once more.";
     } catch (e) {
       debugPrint('GeminiService exception: $e');
-      return "Oops, connection hiccup! Let's try again. What were we talking about?";
+      return "Connection was a bit busy! 🌟 Please tap send again so we can continue practicing.";
     }
   }
 
@@ -158,13 +202,9 @@ Return ONLY a valid JSON array of 3 strings, example: ["Yes, I did!", "Can you g
         },
       });
 
-      final response = await _client.post(
-        Uri.parse('$_baseUrl?key=$_apiKey'),
-        headers: {'Content-Type': 'application/json'},
-        body: requestBody,
-      );
+      final response = await _sendWithModelFallback(requestBody);
 
-      if (response.statusCode == 200) {
+      if (response != null && response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         final parts = jsonResponse['candidates']?[0]?['content']?['parts'];
         if (parts != null && parts.isNotEmpty) {
