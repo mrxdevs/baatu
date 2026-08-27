@@ -12,6 +12,10 @@ import 'utils/app_styles.dart';
 import 'services/auth_service.dart';
 import 'screens/share_screen.dart';
 
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -20,12 +24,19 @@ Future<void> main() async {
 
   await Firebase.initializeApp();
 
-  // await FirebaseAppCheck.instance.activate(
-  //   androidProvider: true
-  //       ? AndroidProvider.debug
-  //       : AndroidProvider.playIntegrity,
-  //  appleProvider: AppleProvider.debug
-  // );
+  // Set Firebase Auth language code to avoid null X-Firebase-Locale warning
+  await FirebaseAuth.instance.setLanguageCode('en');
+
+  // Activate Firebase App Check with Debug provider in debug mode & Play Integrity in release
+  try {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
+    );
+  } catch (e) {
+    debugPrint('FirebaseAppCheck activation notice: $e');
+  }
+
   runApp(
     MultiProvider(
       providers: [
