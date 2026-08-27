@@ -102,7 +102,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with TickerProviderSt
     }
 
     _model = GenerativeModel(
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey,
       systemInstruction: Content.system(
           '''You are Nancy, a friendly and encouraging English speaking teacher created by DigiWellie Technology.
