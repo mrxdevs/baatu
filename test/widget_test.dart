@@ -1,30 +1,46 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:baatu/main.dart';
+import 'package:baatu/model/chat_message_model.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('ChatMessageModel serialization smoke test', () {
+    final msg = ChatMessageModel(
+      id: 'msg_123',
+      role: 'user',
+      content: 'Hello Nancy',
+      timestamp: DateTime.now(),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    final json = msg.toJson();
+    final restored = ChatMessageModel.fromJson(json);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    expect(restored.id, 'msg_123');
+    expect(restored.role, 'user');
+    expect(restored.content, 'Hello Nancy');
+    expect(restored.isUser, true);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('ChatSessionModel serialization smoke test', () {
+    final session = ChatSessionModel(
+      id: 'session_1',
+      title: 'Practice Session',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      userLevel: 'Beginner',
+      messages: [
+        ChatMessageModel(
+          id: '1',
+          role: 'model',
+          content: 'Hi!',
+          timestamp: DateTime.now(),
+        ),
+      ],
+    );
+
+    final json = session.toJson();
+    final restored = ChatSessionModel.fromJson(json);
+
+    expect(restored.id, 'session_1');
+    expect(restored.userLevel, 'Beginner');
+    expect(restored.messages.length, 1);
   });
 }

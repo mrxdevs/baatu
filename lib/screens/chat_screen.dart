@@ -1,11 +1,13 @@
-import 'package:baatu/core/config/env_config.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-import '../services/gemini_service.dart';
 import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+
+import '../core/config/env_config.dart';
+import '../model/chat_message_model.dart';
+import '../services/chat_history_service.dart';
+import '../services/gemini_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -17,30 +19,121 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<Widget> _messages = [];
   final ScrollController _scrollController = ScrollController();
+
   late final GeminiService _geminiService;
+  late final ChatHistoryService _historyService;
+  final FlutterTts _flutterTts = FlutterTts();
+
+  ChatSessionModel? _currentSession;
+  List<ChatSessionModel> _allSessions = [];
+  bool _isLoading = true;
   bool _isTyping = false;
-  String _currentStreamedResponse = '';
+  String _userLevel = 'Intermediate';
+  String? _currentlySpeakingMessageId;
 
-  // Add a list to store the conversation history for the API
-  final List<Map<String, String>> _conversationHistory = [];
+  List<String> _suggestedReplies = [
+    "Hello Nancy!",
+    "Help me practice speaking!",
+    "Teach me a new phrase today",
+  ];
 
-  // Add Firebase instances
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  @override
+  void initState() {
+    super.initState();
+    _geminiService = GeminiService(apiKey: EnvConfig.googleApiKey);
+    _historyService = ChatHistoryService();
+    _initTTS();
+    _loadSessionAndHistory();
+  }
 
-  // Get current user ID (replace with your actual user management logic)
-  String? get _userId => _auth.currentUser?.uid;
-  // Define a chat session ID (can be fixed per user or per session)
-  // For simplicity, let's use the user ID as the chat ID for now
-  String? get _chatId => _userId;
+  void _initTTS() async {
+    try {
+      await _flutterTts.setLanguage('en-US');
+      await _flutterTts.setSpeechRate(0.48);
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.setPitch(1.0);
+
+      _flutterTts.setCompletionHandler(() {
+        if (mounted) {
+          setState(() {
+            _currentlySpeakingMessageId = null;
+          });
+        }
+      });
+      _flutterTts.setErrorHandler((_) {
+        if (mounted) {
+          setState(() {
+            _currentlySpeakingMessageId = null;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('TTS Init error: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    _messageController.dispose();
+    _scrollController.dispose();
+    _geminiService.dispose();
+    super.dispose();
+  }
+
+  Future<void> _speakText(String messageId, String text) async {
+    if (_currentlySpeakingMessageId == messageId) {
+      await _flutterTts.stop();
+      setState(() {
+        _currentlySpeakingMessageId = null;
+      });
+      return;
+    }
+
+    // Strip markdown formatting symbols for speech
+    final cleanText = text
+        .replaceAll(RegExp(r'\*\*|\*|`|#|_'), '')
+        .replaceAll(RegExp(r'✨|🎯|🗣️|✂️|📏|🎓|❓|📈|🚫'), '')
+        .trim();
+
+    setState(() {
+      _currentlySpeakingMessageId = messageId;
+    });
+    await _flutterTts.speak(cleanText);
+  }
+
+  Future<void> _loadSessionAndHistory() async {
+    setState(() => _isLoading = true);
+    try {
+      final savedLevel = await _historyService.getUserLevel();
+      final session = await _historyService.getOrCreateActiveSession(userLevel: savedLevel);
+      final sessions = await _historyService.getSessions();
+
+      setState(() {
+        _userLevel = session.userLevel.isNotEmpty ? session.userLevel : savedLevel;
+        _currentSession = session;
+        _allSessions = sessions;
+        _isLoading = false;
+      });
+
+      if (session.messages.isEmpty) {
+        _sendInitialGreeting();
+      } else {
+        _refreshSuggestedReplies();
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint('Error loading chat session: $e');
+      setState(() => _isLoading = false);
+    }
+  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          _scrollController.position.maxScrollExtent + 80,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -48,396 +141,467 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _geminiService = GeminiService(
-      apiKey: EnvConfig.googleApiKey,
+  Future<void> _sendInitialGreeting() async {
+    setState(() => _isTyping = true);
+    _scrollToBottom();
+
+    String greeting = "";
+    if (_userLevel == 'Beginner') {
+      greeting =
+          "Hi there! 👋 I'm Nancy, your English tutor. Let's learn simple words together. How was your day?";
+    } else if (_userLevel == 'Advanced') {
+      greeting =
+          "Hello! I'm Nancy, your English coach. We'll refine your fluency, nuances, and idioms. What interesting topic shall we explore today?";
+    } else {
+      greeting =
+          "Hey there! 😊 I'm Nancy, your English coach. I'm excited to practice with you! What did you do today?";
+    }
+
+    final botMsg = ChatMessageModel(
+      id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+      role: 'model',
+      content: greeting,
+      timestamp: DateTime.now(),
     );
 
-    _loadChatHistory();
-    // _messages.addAll([
-    //   _buildBotMessage(
-    //     "What sport do you know?",
-    //     const AssetImage('assets/images/bee.png'),
-    //   ),
-    //   const SizedBox(height: 20),
-    //   _buildUserMessage(
-    //     "I know football, volleyball, tennis and others",
-    //     const AssetImage('assets/images/user.png'),
-    //   ),
-    //   const SizedBox(height: 20),
-    //   _buildBotMessage(
-    //     "Have you ever been played any sport?",
-    //     const AssetImage('assets/images/bee.png'),
-    //   ),
-    //   const SizedBox(height: 20),
-    //   _buildUserMessage(
-    //     "Yes,I played volleyball",
-    //     const AssetImage('assets/images/user.png'),
-    //   ),
-    //   const SizedBox(height: 20),
-    //   _buildBotMessage(
-    //     "What sport do you know?",
-    //     const AssetImage('assets/images/bee.png'),
-    //   ),
-    // ]);
-  }
+    if (_currentSession != null) {
+      final updated = ChatSessionModel(
+        id: _currentSession!.id,
+        title: _currentSession!.title,
+        createdAt: _currentSession!.createdAt,
+        updatedAt: DateTime.now(),
+        userLevel: _userLevel,
+        messages: [botMsg],
+      );
 
-  @override
-  void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
+      setState(() {
+        _currentSession = updated;
+        _isTyping = false;
+      });
 
-  Future<void> _loadChatHistory() async {
-    if (_userId == null || _chatId == null) {
-      debugPrint("User not logged in or chat ID not available.");
-      // Handle cases where user is not logged in
-      _showErrorSnackbar("Please log in to use the chat feature.");
-      return;
-    }
-
-    debugPrint("Loading chat history for user: $_userId, chat: $_chatId");
-
-    try {
-      // Fetch messages from Firestore, ordered by timestamp
-      final querySnapshot = await _firestore
-          .collection('users')
-          .doc(_userId)
-          .collection('chats')
-          .doc(_chatId)
-          .collection('messages')
-          .orderBy('timestamp', descending: false)
-          .limit(20) // Limit history to a reasonable number of messages
-          .get();
-
-      debugPrint("Found ${querySnapshot.docs.length} historical messages.");
-
-      if (mounted) {
-        setState(() {
-          // Clear any existing messages (like the hardcoded ones)
-          _messages.clear();
-          _conversationHistory.clear();
-
-          if (querySnapshot.docs.isEmpty) {
-            // First time user scenario
-            debugPrint("No history found. Triggering first-time greeting.");
-            _handleFirstTimeUser();
-          } else {
-            // Load existing history
-            for (var doc in querySnapshot.docs) {
-              final data = doc.data();
-              final role = data['role'];
-              final content = data['content'];
-              // final timestamp = data['timestamp']; // Assuming you save timestamp
-
-              if (role != null && content != null) {
-                // Add to history list for API
-                _conversationHistory.add({'role': role, 'content': content});
-
-                // Add to display list
-                if (role == 'user') {
-                  _messages.add(const SizedBox(height: 20));
-                  _messages
-                      .add(_buildUserMessage(content, const AssetImage('assets/images/user.png')));
-                  _messages.add(const SizedBox(height: 20));
-                } else if (role == 'model') {
-                  _messages.add(const SizedBox(height: 20));
-                  _messages
-                      .add(_buildBotMessage(content, const AssetImage('assets/images/bee.png')));
-                  _messages.add(const SizedBox(height: 20));
-                }
-              }
-            }
-            // Force scroll after loading history
-            WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint("Error loading chat history: $e");
-      _showErrorSnackbar("Failed to load chat history.");
-      // Optionally handle error gracefully in UI
+      await _historyService.saveSession(updated);
+      _refreshSuggestedReplies();
+      _scrollToBottom();
     }
   }
 
-  // New method for the first-time user experience
-  Future<void> _handleFirstTimeUser() async {
-    // Craft a specific prompt for the first message from Nancy
-    final firstMessagePrompt =
-        "This is my first time chatting with you. Please introduce yourself as Nancy, the English teacher from DigiWellie Technology, welcome me, and ask about my English learning goals or suggest a simple topic to start with.";
+  Future<void> _refreshSuggestedReplies() async {
+    if (_currentSession == null || _currentSession!.messages.isEmpty) return;
 
-    if (kDebugMode) {
-      print('ChatScreen: Triggering first-time message.');
+    final lastBotMsg = _currentSession!.messages.lastWhere(
+      (m) => !m.isUser,
+      orElse: () => _currentSession!.messages.last,
+    );
+
+    final suggestions = await _geminiService.getSuggestedReplies(
+      lastBotMsg.content,
+      userLevel: _userLevel,
+    );
+
+    if (mounted && suggestions.isNotEmpty) {
+      setState(() {
+        _suggestedReplies = suggestions;
+      });
+    }
+  }
+
+  Future<void> _handleSendMessage({String? customMessage}) async {
+    final text = (customMessage ?? _messageController.text).trim();
+    if (text.isEmpty || _isTyping || _currentSession == null) return;
+
+    _messageController.clear();
+
+    final userMsg = ChatMessageModel(
+      id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+      role: 'user',
+      content: text,
+      timestamp: DateTime.now(),
+    );
+
+    // Update local session title if first user message
+    String updatedTitle = _currentSession!.title;
+    if (_currentSession!.messages.where((m) => m.isUser).isEmpty) {
+      updatedTitle = text.length > 28 ? '${text.substring(0, 25)}...' : text;
     }
 
-    // Add a placeholder message while waiting for the first response
+    final updatedMessages = List<ChatMessageModel>.from(_currentSession!.messages)..add(userMsg);
+    final intermediateSession = ChatSessionModel(
+      id: _currentSession!.id,
+      title: updatedTitle,
+      createdAt: _currentSession!.createdAt,
+      updatedAt: DateTime.now(),
+      userLevel: _userLevel,
+      messages: updatedMessages,
+    );
+
     setState(() {
-      _messages.add(const SizedBox(height: 20));
-      _messages
-          .add(_buildBotMessage("...", const AssetImage('assets/images/bee.png'))); // Placeholder
-      _messages.add(const SizedBox(height: 20));
+      _currentSession = intermediateSession;
       _isTyping = true;
     });
 
-    // Force scroll
-    await Future.delayed(const Duration(milliseconds: 100));
     _scrollToBottom();
 
-    // Use _handleMessage logic to get the first response from Gemini
-    // Note: _handleMessage will add this prompt as a user message to the history it sends to the API
-    await _handleMessage(initialPrompt: firstMessagePrompt);
-
-    // The _handleMessage function will update the UI and history lists
-    // based on the response it gets from Gemini.
-  }
-
-  Future<void> _handleMessage({String? initialPrompt}) async {
-    final message =
-        initialPrompt ?? _messageController.text.trim(); // Use initialPrompt if provided
-
-    if (message.isEmpty) return;
-
-    // Store message and clear input
-    final userMessage = message;
-    if (initialPrompt == null) {
-      // Only clear controller for user-typed messages
-      _messageController.clear();
-    }
-
-    if (kDebugMode) {
-      print('ChatScreen: Sending message: $userMessage (initial: ${initialPrompt != null})');
-    }
-
-    // Add user message to history and display
-    // Note: If it's the initialPrompt, we don't add a visible user message widget
-    // immediately, as it's just an instruction *to* Gemini. The first visible
-    // message will be Nancy's response.
-    if (initialPrompt == null) {
-      setState(() {
-        _conversationHistory.add({'role': 'user', 'content': userMessage});
-        _messages.add(const SizedBox(height: 20));
-        _messages.add(_buildUserMessage(
-          userMessage,
-          const AssetImage('assets/images/user.png'),
-        ));
-        _messages.add(const SizedBox(height: 20));
-        _isTyping = true;
-        _currentStreamedResponse = ''; // Clear for new streamed response if applicable
-      });
-      // Force scroll after adding user message
-      await Future.delayed(const Duration(milliseconds: 100));
-      _scrollToBottom();
-    } else {
-      // If it's an initial prompt from the app, don't add a user bubble,
-      // just set typing and wait for the bot's first message.
-      if (!_isTyping) {
-        // Prevent setting typing if already set by _handleFirstTimeUser
-        setState(() {
-          _isTyping = true;
-          _currentStreamedResponse = '';
-        });
-      }
-    }
-
-    // Force scroll after adding user message (or setting typing for initial prompt)
-    // Already done above, but good to be sure.
-    await Future.delayed(const Duration(milliseconds: 100));
-    _scrollToBottom();
-
-    // Index to track where typing indicator is added (relative to _messages list)
-    // This index needs to be calculated carefully based on whether
-    // a user message widget was just added or if we are replacing
-    // the initial placeholder for the first-time user.
-    int typingIndicatorMessageIndex = -1;
-    int placeholderIndex = -1;
-
-    // If it's the first message from the bot (_handleFirstTimeUser triggered it),
-    // find and replace the placeholder.
-    if (initialPrompt != null) {
-      // Find the placeholder message
-      placeholderIndex = _messages.indexWhere((widget) =>
-              widget is SizedBox &&
-              widget.height == 20 &&
-              _messages.indexOf(widget) > 0 && // Not the very first SizedBox
-              _messages[_messages.indexOf(widget) - 1]
-                  is Row // Check previous widget is a Row (bot message)
-          );
-      if (placeholderIndex > 0) {
-        // The placeholder is the SizedBox *after* the temporary bot message
-        // We will replace the temporary bot message and its trailing SizedBox.
-        typingIndicatorMessageIndex = placeholderIndex - 1; // Index of the temporary bot message
-      } else {
-        // Could not find placeholder, add typing indicator at the end
-        typingIndicatorMessageIndex = _messages.length;
-        setState(() {
-          _messages.add(_buildBotMessage("Typing...", const AssetImage('assets/images/bee.png')));
-          _messages.add(const SizedBox(height: 20));
-        });
-      }
-    } else {
-      // For regular user messages, add typing indicator at the end
-      typingIndicatorMessageIndex = _messages.length;
-      setState(() {
-        _messages.add(_buildBotMessage("Typing...", const AssetImage('assets/images/bee.png')));
-        _messages.add(const SizedBox(height: 20));
-      });
-    }
-
-    if (kDebugMode) {
-      print('ChatScreen: Showing typing indicator at messages index: $typingIndicatorMessageIndex');
-    }
-
-    // Force scroll after adding typing indicator
-    await Future.delayed(const Duration(milliseconds: 100));
-    _scrollToBottom();
+    // Prepare history for Gemini
+    final apiHistory = updatedMessages
+        .map((m) => {
+              'role': m.role,
+              'content': m.content,
+            })
+        .toList();
 
     try {
-      if (kDebugMode) {
-        print('ChatScreen: Calling Gemini API with history length: ${_conversationHistory.length}');
-      }
+      final responseText = await _geminiService.getChatResponse(
+        text,
+        apiHistory,
+        userLevel: _userLevel,
+      );
 
-      // Get complete response from API using the managed history
-      final response = await _geminiService.getChatResponse(
-          userMessage, List.from(_conversationHistory)); // Pass a copy
+      final botMsg = ChatMessageModel(
+        id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+        role: 'model',
+        content: responseText,
+        timestamp: DateTime.now(),
+      );
 
-      if (kDebugMode) {
-        print(
-            'ChatScreen: Received response from Gemini: ${response.substring(0, min(50, response.length))}...');
-        print(
-            'ChatScreen: typingIndicatorMessageIndex: $typingIndicatorMessageIndex, messages length: ${_messages.length}');
-      }
+      final finalMessages = List<ChatMessageModel>.from(updatedMessages)..add(botMsg);
+      final finalSession = ChatSessionModel(
+        id: _currentSession!.id,
+        title: updatedTitle,
+        createdAt: _currentSession!.createdAt,
+        updatedAt: DateTime.now(),
+        userLevel: _userLevel,
+        messages: finalMessages,
+      );
 
       if (mounted) {
-        if (kDebugMode) {
-          print('ChatScreen: Updating UI with response: $response');
-        }
-
         setState(() {
-          // Remove the typing indicator and spacing
-          // Need to be careful with indices as we are removing elements
-          if (typingIndicatorMessageIndex >= 0 &&
-              typingIndicatorMessageIndex < _messages.length - 1) {
-            // Ensure there's a SizedBox after
-            if (kDebugMode) {
-              print(
-                  'ChatScreen: Removing typing indicator and SizedBox at indices $typingIndicatorMessageIndex and ${typingIndicatorMessageIndex + 1}');
-            }
-            _messages.removeAt(typingIndicatorMessageIndex + 1); // Remove height SizedBox
-            _messages.removeAt(typingIndicatorMessageIndex); // Remove typing message
-          } else {
-            if (kDebugMode) {
-              print(
-                  'ChatScreen: Could not find typing indicator at expected index, removing last two elements assuming they are indicator + SizedBox');
-              // Fallback: Remove the last two elements assuming they are the typing indicator and SizedBox
-              if (_messages.length >= 2) {
-                _messages.removeLast(); // Remove SizedBox
-                _messages.removeLast(); // Remove typing message
-              } else if (_messages.isNotEmpty) {
-                _messages.removeLast(); // Remove just the typing message if no SizedBox
-              }
-            }
-          }
-
-          if (kDebugMode) {
-            print('ChatScreen: Adding bot response at index $typingIndicatorMessageIndex');
-          }
-
-          // Add the complete response at the position where the typing indicator was (or end)
-          _currentStreamedResponse =
-              response; // Not actually streaming, but reusing the variable name
-          _messages.insert(
-              typingIndicatorMessageIndex >= 0 && typingIndicatorMessageIndex <= _messages.length
-                  ? typingIndicatorMessageIndex
-                  : _messages.length,
-              _buildBotMessage(
-                _currentStreamedResponse,
-                const AssetImage('assets/images/bee.png'),
-              ));
-          _messages.insert(
-              typingIndicatorMessageIndex >= 0 && typingIndicatorMessageIndex <= _messages.length
-                  ? typingIndicatorMessageIndex + 1
-                  : _messages.length,
-              const SizedBox(height: 20));
-
-          // **Add bot response to conversation history**
-          _conversationHistory.add({'role': 'model', 'content': _currentStreamedResponse});
-
+          _currentSession = finalSession;
           _isTyping = false;
-
-          if (kDebugMode) {
-            print('ChatScreen: Final messages length after update: ${_messages.length}');
-            print('ChatScreen: Final conversation history length: ${_conversationHistory.length}');
-          }
         });
 
-        // **Save conversation history to Firebase**
-        _saveMessage(role: 'user', content: userMessage);
-        _saveMessage(role: 'model', content: _currentStreamedResponse);
-
+        await _historyService.saveSession(finalSession);
+        _refreshSuggestedReplies();
         _scrollToBottom();
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('ChatScreen: Error handling message: $e');
-      }
       if (mounted) {
-        // Remove typing indicator on error
-        setState(() {
-          if (typingIndicatorMessageIndex >= 0 &&
-              typingIndicatorMessageIndex < _messages.length - 1) {
-            // Ensure there's a SizedBox after
-            _messages.removeAt(typingIndicatorMessageIndex + 1); // Remove height SizedBox
-            _messages.removeAt(typingIndicatorMessageIndex); // Remove typing message
-          } else {
-            // Fallback: Remove the last two elements assuming they are the typing indicator and SizedBox
-            if (_messages.length >= 2) {
-              _messages.removeLast(); // Remove SizedBox
-              _messages.removeLast(); // Remove typing message
-            } else if (_messages.isNotEmpty) {
-              _messages.removeLast(); // Remove just the typing message if no SizedBox
-            }
-          }
-          _isTyping = false;
-        });
-        _showErrorSnackbar('Error: ${e.toString()}');
+        setState(() => _isTyping = false);
+        _showSnackbar('Something went wrong. Please try again.');
       }
     }
   }
 
-  Future<void> _saveMessage({required String role, required String content}) async {
-    if (_userId == null || _chatId == null) {
-      debugPrint("Cannot save message: User not logged in or chat ID not available.");
-      return;
-    }
-    try {
-      await _firestore
-          .collection('users')
-          .doc(_userId)
-          .collection('chats')
-          .doc(_chatId)
-          .collection('messages')
-          .add({
-        'role': role,
-        'content': content,
-        'timestamp': FieldValue.serverTimestamp(), // Use server timestamp
-      });
-      debugPrint(
-          "Message saved to Firebase: $role - ${content.substring(0, min(50, content.length))}");
-    } catch (e) {
-      debugPrint("Error saving message to Firebase: $e");
-      // Optionally handle error gracefully - perhaps keep a local unsaved queue?
-    }
+  Future<void> _startNewSession() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Start New Session?'),
+        content: const Text(
+          'Your current conversation will be saved in your session history, and Nancy will start a fresh chat with you.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8E4585),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('New Session', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    final newSession = await _historyService.createNewSession(userLevel: _userLevel);
+    final all = await _historyService.getSessions();
+
+    setState(() {
+      _currentSession = newSession;
+      _allSessions = all;
+      _isLoading = false;
+    });
+
+    _sendInitialGreeting();
   }
 
-  void _showErrorSnackbar(String message) {
+  void _showSessionHistoryModal() async {
+    final sessions = await _historyService.getSessions();
+    setState(() => _allSessions = sessions);
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Chat Sessions History',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF8E4585),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _startNewSession();
+                    },
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    label: const Text('Start New Session', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8E4585),
+                      minimumSize: const Size(double.infinity, 45),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: _allSessions.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No previous sessions yet.\nStart chatting with Nancy!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: _allSessions.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final s = _allSessions[index];
+                              final isCurrent = s.id == _currentSession?.id;
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                leading: CircleAvatar(
+                                  backgroundColor: isCurrent
+                                      ? const Color(0xFF8E4585)
+                                      : const Color(0xFF8E4585).withOpacity(0.1),
+                                  child: Icon(
+                                    Icons.chat_bubble_outline,
+                                    color: isCurrent ? Colors.white : const Color(0xFF8E4585),
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(
+                                  s.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                    color: isCurrent ? const Color(0xFF8E4585) : Colors.black87,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${s.messages.length} messages • Level: ${s.userLevel}',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                  onPressed: () async {
+                                    await _historyService.deleteSession(s.id);
+                                    final updated = await _historyService.getSessions();
+                                    setModalState(() {
+                                      _allSessions = updated;
+                                    });
+                                    setState(() {
+                                      _allSessions = updated;
+                                    });
+                                    if (isCurrent && updated.isNotEmpty) {
+                                      _historyService.setActiveSessionId(updated.first.id);
+                                      setState(() => _currentSession = updated.first);
+                                    }
+                                  },
+                                ),
+                                onTap: () async {
+                                  await _historyService.setActiveSessionId(s.id);
+                                  Navigator.pop(context);
+                                  setState(() {
+                                    _currentSession = s;
+                                    _userLevel = s.userLevel;
+                                  });
+                                  _refreshSuggestedReplies();
+                                  _scrollToBottom();
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showLevelSelectorModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Select Learning Level',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8E4585),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Nancy will immediately adapt her vocabulary, speed, and sentence complexity.',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 20),
+              _buildLevelTile(
+                level: 'Beginner',
+                title: '🟢 Beginner (Foundations)',
+                desc: 'Simple everyday words, short sentences, and friendly gentle guidance.',
+              ),
+              const SizedBox(height: 10),
+              _buildLevelTile(
+                level: 'Intermediate',
+                title: '🟡 Intermediate (Conversational)',
+                desc: 'Everyday conversations, common idioms, sentence variation, and fluency.',
+              ),
+              const SizedBox(height: 10),
+              _buildLevelTile(
+                level: 'Advanced',
+                title: '🟣 Advanced (Nuance & Mastery)',
+                desc: 'Rich vocabulary, complex phrases, formal vs informal nuances, and precision.',
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLevelTile({
+    required String level,
+    required String title,
+    required String desc,
+  }) {
+    final isSelected = _userLevel == level;
+
+    return InkWell(
+      onTap: () async {
+        Navigator.pop(context);
+        if (_userLevel == level) return;
+
+        setState(() {
+          _userLevel = level;
+        });
+
+        await _historyService.saveUserLevel(level);
+
+        if (_currentSession != null) {
+          final updated = ChatSessionModel(
+            id: _currentSession!.id,
+            title: _currentSession!.title,
+            createdAt: _currentSession!.createdAt,
+            updatedAt: DateTime.now(),
+            userLevel: level,
+            messages: _currentSession!.messages,
+          );
+          setState(() => _currentSession = updated);
+          await _historyService.saveSession(updated);
+        }
+
+        // Notify Nancy of level change
+        _handleSendMessage(
+          customMessage: "I've changed my learning level to $level. Please adapt your questions and feedback!",
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF8E4585).withOpacity(0.08) : Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF8E4585) : Colors.grey[300]!,
+            width: isSelected ? 1.8 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: isSelected ? const Color(0xFF8E4585) : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(desc, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: Color(0xFF8E4585), size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSnackbar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 4),
+        content: Text(msg),
+        backgroundColor: const Color(0xFF8E4585),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -445,291 +609,415 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      body: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [
-                  Color(0xFFF5F5F5),
-                  Colors.white,
+      backgroundColor: const Color(0xFFF9F7FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        shadowColor: Colors.black.withOpacity(0.08),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF8E4585), size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Stack(
+              children: [
+                const CircleAvatar(
+                  radius: 19,
+                  backgroundImage: AssetImage('assets/images/bee.png'),
+                  backgroundColor: Colors.transparent,
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Nancy (AI Teacher)',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF8E4585),
+                    ),
+                  ),
+                  Text(
+                    _isTyping ? 'Typing feedback...' : 'Active Tutor • DigiWellie',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _isTyping ? const Color(0xFF8E4585) : Colors.grey[600],
+                      fontWeight: _isTyping ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // Level selector chip
+          GestureDetector(
+            onTap: _showLevelSelectorModal,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8E4585).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF8E4585).withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _userLevel == 'Beginner'
+                        ? '🟢 Beg'
+                        : _userLevel == 'Advanced'
+                            ? '🟣 Adv'
+                            : '🟡 Inter',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF8E4585),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: Color(0xFF8E4585), size: 16),
                 ],
               ),
             ),
           ),
-          SafeArea(
+          // History & New Session Actions
+          IconButton(
+            icon: const Icon(Icons.history, color: Color(0xFF8E4585)),
+            tooltip: 'Session History',
+            onPressed: _showSessionHistoryModal,
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF8E4585)),
+            tooltip: 'New Chat Session',
+            onPressed: _startNewSession,
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF8E4585)))
+          : SafeArea(
+              child: Column(
+                children: [
+                  // Message list
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      itemCount: (_currentSession?.messages.length ?? 0) + (_isTyping ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == _currentSession?.messages.length && _isTyping) {
+                          return _buildTypingIndicator();
+                        }
+                        final msg = _currentSession!.messages[index];
+                        return msg.isUser
+                            ? _buildUserMessageBubble(msg)
+                            : _buildBotMessageBubble(msg);
+                      },
+                    ),
+                  ),
+
+                  // Interactive Suggestion Chips
+                  if (_suggestedReplies.isNotEmpty && !_isTyping)
+                    Container(
+                      height: 42,
+                      margin: const EdgeInsets.only(bottom: 6),
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _suggestedReplies.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, i) {
+                          final text = _suggestedReplies[i];
+                          return ActionChip(
+                            label: Text(text, style: const TextStyle(fontSize: 12)),
+                            backgroundColor: Colors.white,
+                            side: BorderSide(color: const Color(0xFF8E4585).withOpacity(0.3)),
+                            labelStyle: const TextStyle(
+                              color: Color(0xFF8E4585),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            elevation: 1,
+                            shadowColor: Colors.black.withOpacity(0.04),
+                            onPressed: () => _handleSendMessage(customMessage: text),
+                          );
+                        },
+                      ),
+                    ),
+
+                  // Input bar
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F3F7),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: TextField(
+                              controller: _messageController,
+                              enabled: !_isTyping,
+                              minLines: 1,
+                              maxLines: 4,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: InputDecoration(
+                                hintText: _isTyping
+                                    ? 'Nancy is thinking...'
+                                    : 'Reply in English (micro-sentences)...',
+                                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onSubmitted: _isTyping ? null : (_) => _handleSendMessage(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _isTyping ? null : () => _handleSendMessage(),
+                          child: CircleAvatar(
+                            radius: 22,
+                            backgroundColor:
+                                _isTyping ? Colors.grey[300] : const Color(0xFF8E4585),
+                            child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildBotMessageBubble(ChatMessageModel msg) {
+    final isSpeaking = _currentlySpeakingMessageId == msg.id;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CircleAvatar(
+            radius: 17,
+            backgroundImage: AssetImage('assets/images/bee.png'),
+            backgroundColor: Colors.transparent,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back_ios_new,
-                            color: Color(0xFF8E4585),
-                          ),
-                        ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8E7F8),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(18),
+                      bottomLeft: Radius.circular(18),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    border: Border.all(
+                      color: const Color(0xFF8E4585).withOpacity(0.15),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
-                      const SizedBox(width: 20),
-                      // Loading indicator or static title based on state
-                      _isTyping &&
-                              _messages.isNotEmpty &&
-                              _messages.last is Row &&
-                              (_messages.last as Row).children.first is CircleAvatar &&
-                              ((_messages.last as Row).children.first as CircleAvatar)
-                                  .backgroundImage is AssetImage &&
-                              (((_messages.last as Row).children.first as CircleAvatar)
-                                      .backgroundImage as AssetImage)
-                                  .assetName
-                                  .contains('bee')
-                          ? const Text(
-                              "Nancy is typing...",
-                              style: TextStyle(
-                                fontSize: 20, // Slightly smaller when typing
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF8E4585),
-                              ),
-                            )
-                          : const Text(
-                              "Let's talk!",
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF8E4585),
-                              ),
-                            ),
                     ],
                   ),
-                ),
-
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(20),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      return _messages[index];
-                    },
+                  child: MarkdownBody(
+                    data: msg.content,
+                    styleSheet: MarkdownStyleSheet(
+                      p: const TextStyle(
+                        fontSize: 15,
+                        color: Colors.black87,
+                        height: 1.35,
+                      ),
+                      strong: const TextStyle(
+                        color: Color(0xFF8E4585),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
-                // typing indicator handled inline in _messages list now
-                // if (_isTyping)
-                //   Padding(
-                //     padding: const EdgeInsets.all(20.0),
-                //     child: _buildTypingIndicator(),
-                //   ),
-                const SizedBox(height: 80),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () => _speakText(msg.id, msg.content),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSpeaking ? Icons.volume_up : Icons.volume_up_outlined,
+                              size: 16,
+                              color: isSpeaking ? Colors.green : const Color(0xFF8E4585),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isSpeaking ? 'Listening...' : 'Listen',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isSpeaking ? Colors.green : const Color(0xFF8E4585),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: msg.content));
+                        _showSnackbar('Message copied to clipboard');
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Icon(Icons.copy_outlined, size: 14, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 30,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(
-                  color: const Color(0xFF8E4585).withOpacity(0.3),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      enabled: !_isTyping, // Disable input while typing
-                      decoration: InputDecoration(
-                        hintText: _isTyping ? 'Nancy is thinking...' : 'Type your message...',
-                        hintStyle: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 16,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                      ),
-                      onSubmitted:
-                          _isTyping ? null : (_) => _handleMessage(), // Disable submit while typing
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _isTyping ? null : _handleMessage, // Disable button while typing
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _isTyping
-                            ? Colors.grey
-                            : const Color(0xFF8E4585), // Grey out when disabled
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        Icons.send_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Loading overlay (optional, but good for long waits)
-          if (_isTyping &&
-              _messages.isEmpty) // Show a central indicator if loading the very first message
-            const Center(child: CircularProgressIndicator(color: Color(0xFF8E4585))),
+          const SizedBox(width: 40),
         ],
       ),
     );
   }
 
-  Widget _buildBotMessage(String message, ImageProvider avatarImage) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 20,
-          backgroundImage: avatarImage,
-          backgroundColor: Colors.transparent,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+  Widget _buildUserMessageBubble(ChatMessageModel msg) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(width: 45),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8E7F8),
-                border: Border.all(
-                  color: const Color(0xFF8E4585).withOpacity(0.2),
-                  width: 1,
+                color: const Color(0xFF8E4585),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(18),
+                  topRight: Radius.circular(4),
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
                 ),
-                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: const Color(0xFF8E4585).withOpacity(0.2),
                     blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
-              child: MarkdownBody(
-                shrinkWrap: true,
-                data: message,
-                // styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
-                styleSheet: MarkdownStyleSheet(),
-              )),
-        ),
-        const SizedBox(width: 50),
-      ],
-    );
-  }
-
-  Widget _buildUserMessage(String message, ImageProvider avatarImage) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        const SizedBox(width: 50),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(
-                color: const Color(0xFF8E4585).withOpacity(0.1),
-                width: 1,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              child: Text(
+                msg.content,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Colors.white,
+                  height: 1.35,
                 ),
-              ],
-            ),
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        CircleAvatar(
-          radius: 20,
-          backgroundImage: avatarImage,
-          backgroundColor: Colors.transparent,
-        ),
-      ],
+          const SizedBox(width: 8),
+          const CircleAvatar(
+            radius: 17,
+            backgroundImage: AssetImage('assets/images/user.png'),
+            backgroundColor: Colors.transparent,
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildTypingIndicator() {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 20,
-          backgroundImage: const AssetImage('assets/images/bee.png'),
-          backgroundColor: Colors.transparent,
-        ),
-        const SizedBox(width: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8E7F8),
-            borderRadius: BorderRadius.circular(20),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 17,
+            backgroundImage: AssetImage('assets/images/bee.png'),
+            backgroundColor: Colors.transparent,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildDot(0),
-              _buildDot(1),
-              _buildDot(2),
-            ],
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8E7F8),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDot(0),
+                _buildDot(1),
+                _buildDot(2),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildDot(int index) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 600),
+      duration: Duration(milliseconds: 400 + (index * 150)),
       curve: Curves.easeInOut,
       builder: (context, value, child) {
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 2),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
           height: 6 + (value * 3),
           width: 6,
           decoration: BoxDecoration(
