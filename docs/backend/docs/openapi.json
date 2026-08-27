@@ -1,0 +1,1453 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Baatu API",
+    "description": "Backend API for the Baatu English learning app. Provides authentication, user management, vocabulary learning, and voice call matching features.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Baatu Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://baatu-backend-production.up.railway.app",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:8080",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {"name": "Health", "description": "Health check endpoints"},
+    {"name": "Authentication", "description": "User registration, login, and password management"},
+    {"name": "Users", "description": "User profile management"},
+    {"name": "Words", "description": "Vocabulary learning features"},
+    {"name": "Calls", "description": "Voice call matching queue and history"},
+    {"name": "Interactions", "description": "User follow, block, and report features"}
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Check if the API service is running",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string", "example": "healthy"},
+                    "service": {"type": "string", "example": "baatu-api"},
+                    "version": {"type": "string", "example": "1.0.0"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register new user",
+        "description": "Register a new user with email and password",
+        "operationId": "register",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/RegisterRequest"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/AuthResponse"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login with email/password",
+        "description": "Authenticate user with email and password",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LoginRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/AuthResponse"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/auth/google": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Google OAuth authentication",
+        "description": "Authenticate or register user using Google OAuth",
+        "operationId": "googleAuth",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/GoogleAuthRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Google authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/AuthResponse"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify email token",
+        "description": "Verify user's email using the verification token sent via email",
+        "operationId": "verifyEmail",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/VerifyEmailRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Request password reset",
+        "description": "Send password reset OTP to user's email",
+        "operationId": "forgotPassword",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/ForgotPasswordRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent if account exists",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/auth/verify-otp": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify OTP",
+        "description": "Verify the OTP sent for password reset",
+        "operationId": "verifyOtp",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/VerifyOTPRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Reset password",
+        "description": "Reset password using verified OTP",
+        "operationId": "resetPassword",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/ResetPasswordRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successful",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"}
+        }
+      }
+    },
+    "/api/v1/users/profile": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get current user profile",
+        "description": "Retrieve the authenticated user's profile",
+        "operationId": "getProfile",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/UserWithProfile"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "404": {"$ref": "#/components/responses/NotFound"}
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update profile",
+        "description": "Update the authenticated user's profile",
+        "operationId": "updateProfile",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateProfileRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/UserWithProfile"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users/avatar": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Upload avatar",
+        "description": "Upload a new avatar image (max 5MB)",
+        "operationId": "uploadAvatar",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Avatar image file (max 5MB)"
+                  }
+                },
+                "required": ["avatar"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Avatar updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "avatar_url": {"type": "string"}
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users": {
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete account",
+        "description": "Permanently delete the authenticated user's account",
+        "operationId": "deleteAccount",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Account deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users/resend-verification": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Resend verification email",
+        "description": "Resend the email verification link",
+        "operationId": "resendVerification",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Verification email sent",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users/followers": {
+      "get": {
+        "tags": ["Interactions"],
+        "summary": "Get followers",
+        "description": "Get list of users following the authenticated user",
+        "operationId": "getFollowers",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Followers list retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/FollowListResponse"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users/following": {
+      "get": {
+        "tags": ["Interactions"],
+        "summary": "Get following",
+        "description": "Get list of users the authenticated user is following",
+        "operationId": "getFollowing",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Following list retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/FollowListResponse"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users/blocked": {
+      "get": {
+        "tags": ["Interactions"],
+        "summary": "Get blocked users",
+        "description": "Get list of users blocked by the authenticated user",
+        "operationId": "getBlockedUsers",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Blocked users list retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "users": {
+                              "type": "array",
+                              "items": {"$ref": "#/components/schemas/User"}
+                            },
+                            "total": {"type": "integer"}
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users/{id}/follow": {
+      "post": {
+        "tags": ["Interactions"],
+        "summary": "Follow user",
+        "description": "Follow another user",
+        "operationId": "followUser",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "format": "uuid"},
+            "description": "User ID to follow"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User followed",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      },
+      "delete": {
+        "tags": ["Interactions"],
+        "summary": "Unfollow user",
+        "description": "Unfollow a user",
+        "operationId": "unfollowUser",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "format": "uuid"},
+            "description": "User ID to unfollow"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User unfollowed",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users/{id}/block": {
+      "post": {
+        "tags": ["Interactions"],
+        "summary": "Block user",
+        "description": "Block another user",
+        "operationId": "blockUser",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "format": "uuid"},
+            "description": "User ID to block"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User blocked",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      },
+      "delete": {
+        "tags": ["Interactions"],
+        "summary": "Unblock user",
+        "description": "Unblock a user",
+        "operationId": "unblockUser",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "format": "uuid"},
+            "description": "User ID to unblock"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User unblocked",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/users/{id}/report": {
+      "post": {
+        "tags": ["Interactions"],
+        "summary": "Report user",
+        "description": "Report a user for abuse",
+        "operationId": "reportUser",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "format": "uuid"},
+            "description": "User ID to report"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/ReportUserRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User reported",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/words/daily": {
+      "get": {
+        "tags": ["Words"],
+        "summary": "Get daily words",
+        "description": "Get the list of vocabulary words for today",
+        "operationId": "getDailyWords",
+        "responses": {
+          "200": {
+            "description": "Daily words retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/DailyWordsResponse"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/api/v1/words/today": {
+      "get": {
+        "tags": ["Words"],
+        "summary": "Get word of the day",
+        "description": "Get today's featured word",
+        "operationId": "getWordOfTheDay",
+        "responses": {
+          "200": {
+            "description": "Word of the day retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/Word"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/api/v1/words/{id}": {
+      "get": {
+        "tags": ["Words"],
+        "summary": "Get word by ID",
+        "description": "Get detailed information about a specific word",
+        "operationId": "getWord",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Word ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Word details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/Word"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "404": {"$ref": "#/components/responses/NotFound"}
+        }
+      }
+    },
+    "/api/v1/words/{id}/save": {
+      "post": {
+        "tags": ["Words"],
+        "summary": "Save word",
+        "description": "Save a word to user's collection",
+        "operationId": "saveWord",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Word ID to save"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Word saved",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      },
+      "delete": {
+        "tags": ["Words"],
+        "summary": "Remove word",
+        "description": "Remove a word from user's collection",
+        "operationId": "removeWord",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Word ID to remove"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Word removed",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/words/{id}/learned": {
+      "post": {
+        "tags": ["Words"],
+        "summary": "Mark word as learned",
+        "description": "Mark a word as learned in user's collection",
+        "operationId": "markLearned",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Word ID to mark as learned"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Word marked as learned",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/words/saved": {
+      "get": {
+        "tags": ["Words"],
+        "summary": "Get saved words",
+        "description": "Get user's saved words collection",
+        "operationId": "getSavedWords",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Saved words retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "words": {
+                              "type": "array",
+                              "items": {"$ref": "#/components/schemas/UserWord"}
+                            },
+                            "total": {"type": "integer"}
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/api/v1/calls/queue": {
+      "post": {
+        "tags": ["Calls"],
+        "summary": "Join matching queue",
+        "description": "Join the voice call matching queue with optional preferences",
+        "operationId": "joinQueue",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/JoinQueueRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Joined matching queue",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      },
+      "delete": {
+        "tags": ["Calls"],
+        "summary": "Leave matching queue",
+        "description": "Leave the voice call matching queue",
+        "operationId": "leaveQueue",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Left matching queue",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/calls/match": {
+      "get": {
+        "tags": ["Calls"],
+        "summary": "Find match",
+        "description": "Check for a matching call partner",
+        "operationId": "findMatch",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Match result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/MatchResult"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/calls/start": {
+      "post": {
+        "tags": ["Calls"],
+        "summary": "Start call",
+        "description": "Start a call with matched user",
+        "operationId": "startCall",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/StartCallRequest"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Call started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/Call"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/calls/end": {
+      "post": {
+        "tags": ["Calls"],
+        "summary": "End call",
+        "description": "End an active call",
+        "operationId": "endCall",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/EndCallRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Call ended",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/calls/{id}/rate": {
+      "post": {
+        "tags": ["Calls"],
+        "summary": "Rate call",
+        "description": "Rate a call partner with thumbs up/down",
+        "operationId": "rateCall",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "format": "uuid"},
+            "description": "Call ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/RateCallRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rating submitted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/calls/history": {
+      "get": {
+        "tags": ["Calls"],
+        "summary": "Get call history",
+        "description": "Get paginated call history",
+        "operationId": "getCallHistory",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {"type": "integer", "default": 1},
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {"type": "integer", "default": 20},
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Call history retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/ApiResponse"},
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {"$ref": "#/components/schemas/CallHistoryResponse"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request - validation error",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized - authentication required or failed",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {"type": "string"},
+          "data": {"type": "object"}
+        },
+        "required": ["success"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean", "example": false},
+          "error": {"type": "string"}
+        },
+        "required": ["success", "error"]
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": {"type": "string", "format": "email"},
+          "password": {"type": "string", "minLength": 8},
+          "name": {"type": "string", "minLength": 2}
+        },
+        "required": ["email", "password", "name"]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {"type": "string", "format": "email"},
+          "password": {"type": "string"}
+        },
+        "required": ["email", "password"]
+      },
+      "GoogleAuthRequest": {
+        "type": "object",
+        "properties": {
+          "id_token": {"type": "string"},
+          "google_id": {"type": "string"},
+          "email": {"type": "string", "format": "email"},
+          "name": {"type": "string"}
+        },
+        "required": ["id_token", "google_id", "email", "name"]
+      },
+      "VerifyEmailRequest": {
+        "type": "object",
+        "properties": {
+          "token": {"type": "string"}
+        },
+        "required": ["token"]
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "email": {"type": "string", "format": "email"}
+        },
+        "required": ["email"]
+      },
+      "VerifyOTPRequest": {
+        "type": "object",
+        "properties": {
+          "email": {"type": "string", "format": "email"},
+          "otp": {"type": "string", "minLength": 6, "maxLength": 6}
+        },
+        "required": ["email", "otp"]
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "email": {"type": "string", "format": "email"},
+          "otp": {"type": "string", "minLength": 6, "maxLength": 6},
+          "new_password": {"type": "string", "minLength": 8}
+        },
+        "required": ["email", "otp", "new_password"]
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "bio": {"type": "string"},
+          "native_language": {"type": "string"},
+          "learning_language": {"type": "string"},
+          "skill_level": {"type": "string"},
+          "age_range": {"type": "string"},
+          "gender": {"type": "string"},
+          "location": {"type": "string"},
+          "timezone": {"type": "string"},
+          "interests": {"type": "array", "items": {"type": "string"}}
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": {"type": "string"},
+          "user": {"$ref": "#/components/schemas/User"},
+          "profile": {"$ref": "#/components/schemas/UserProfile"}
+        },
+        "required": ["token", "user", "profile"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "email": {"type": "string", "format": "email"},
+          "name": {"type": "string"},
+          "auth_provider": {"type": "string", "enum": ["email", "google"]},
+          "is_verified": {"type": "boolean"},
+          "is_active": {"type": "boolean"},
+          "last_login": {"type": "string", "format": "date-time"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "user_id": {"type": "string", "format": "uuid"},
+          "bio": {"type": "string"},
+          "avatar_url": {"type": "string"},
+          "native_language": {"type": "string"},
+          "learning_language": {"type": "string"},
+          "skill_level": {"type": "string", "enum": ["beginner", "intermediate", "advanced"]},
+          "age_range": {"type": "string"},
+          "gender": {"type": "string"},
+          "location": {"type": "string"},
+          "timezone": {"type": "string"},
+          "interests": {"type": "array", "items": {"type": "string"}},
+          "is_premium": {"type": "boolean"},
+          "total_calls": {"type": "integer"},
+          "total_minutes": {"type": "integer"},
+          "current_streak": {"type": "integer"},
+          "longest_streak": {"type": "integer"},
+          "last_active_date": {"type": "string", "format": "date-time"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "UserWithProfile": {
+        "type": "object",
+        "properties": {
+          "user": {"$ref": "#/components/schemas/User"},
+          "profile": {"$ref": "#/components/schemas/UserProfile"}
+        }
+      },
+      "Word": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "word": {"type": "string"},
+          "meaning": {"type": "string"},
+          "pronunciation_url": {"type": "string"},
+          "part_of_speech": {"type": "string"},
+          "difficulty_level": {"type": "string", "enum": ["beginner", "intermediate", "advanced"]},
+          "example_sentence": {"type": "string"},
+          "synonyms": {"type": "array", "items": {"type": "string"}},
+          "antonyms": {"type": "array", "items": {"type": "string"}},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "UserWord": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "user_id": {"type": "string", "format": "uuid"},
+          "word_id": {"type": "integer"},
+          "is_learned": {"type": "boolean"},
+          "saved_at": {"type": "string", "format": "date-time"},
+          "learned_at": {"type": "string", "format": "date-time"},
+          "word": {"$ref": "#/components/schemas/Word"}
+        }
+      },
+      "DailyWordsResponse": {
+        "type": "object",
+        "properties": {
+          "date": {"type": "string", "format": "date"},
+          "word_of_day": {"$ref": "#/components/schemas/Word"},
+          "words": {"type": "array", "items": {"$ref": "#/components/schemas/Word"}},
+          "total_words": {"type": "integer"}
+        }
+      },
+      "Call": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "caller_id": {"type": "string", "format": "uuid"},
+          "callee_id": {"type": "string", "format": "uuid"},
+          "status": {"type": "string", "enum": ["pending", "active", "completed", "missed", "cancelled"]},
+          "started_at": {"type": "string", "format": "date-time"},
+          "ended_at": {"type": "string", "format": "date-time"},
+          "duration_seconds": {"type": "integer"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "caller": {"$ref": "#/components/schemas/User"},
+          "callee": {"$ref": "#/components/schemas/User"}
+        }
+      },
+      "JoinQueueRequest": {
+        "type": "object",
+        "properties": {
+          "skill_level": {"type": "string", "enum": ["beginner", "intermediate", "advanced"]},
+          "gender_preference": {"type": "string"},
+          "age_preference": {"type": "string"}
+        }
+      },
+      "StartCallRequest": {
+        "type": "object",
+        "properties": {
+          "callee_id": {"type": "string", "format": "uuid"}
+        },
+        "required": ["callee_id"]
+      },
+      "EndCallRequest": {
+        "type": "object",
+        "properties": {
+          "call_id": {"type": "string", "format": "uuid"},
+          "duration_seconds": {"type": "integer"}
+        },
+        "required": ["call_id"]
+      },
+      "RateCallRequest": {
+        "type": "object",
+        "properties": {
+          "thumbs_up": {"type": "boolean"}
+        },
+        "required": ["thumbs_up"]
+      },
+      "MatchResult": {
+        "type": "object",
+        "properties": {
+          "found": {"type": "boolean"},
+          "match_id": {"type": "string", "format": "uuid"},
+          "user": {"$ref": "#/components/schemas/User"},
+          "profile": {"$ref": "#/components/schemas/UserProfile"}
+        },
+        "required": ["found"]
+      },
+      "CallHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "calls": {"type": "array", "items": {"$ref": "#/components/schemas/Call"}},
+          "total": {"type": "integer"},
+          "page": {"type": "integer"},
+          "limit": {"type": "integer"}
+        }
+      },
+      "FollowListResponse": {
+        "type": "object",
+        "properties": {
+          "users": {"type": "array", "items": {"$ref": "#/components/schemas/User"}},
+          "total": {"type": "integer"}
+        }
+      },
+      "ReportUserRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {"type": "string", "enum": ["harassment", "inappropriate", "spam", "other"]},
+          "description": {"type": "string"}
+        },
+        "required": ["reason"]
+      }
+    }
+  }
+}
