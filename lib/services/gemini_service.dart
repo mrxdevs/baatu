@@ -7,9 +7,9 @@ class GeminiService {
   // List of fallback models in order of priority when a model is overloaded (503 / 429)
   static const List<String> _models = [
     'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-3.5-flash',
-    'gemma-4-31b-it',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
     'gemini-flash-latest',
   ];
 
@@ -46,6 +46,9 @@ Strict Teaching Rules:
    - Intermediate: Natural conversational fluency, common expressions, phrasing variety.
    - Advanced: Nuanced vocabulary, idioms, precision, and natural collocations.
 7. 🚫 OFF-TOPIC HANDLING: If asked about coding, math, or unrelated topics, politely redirect back to practicing English on that theme in one short sentence.
+8. 💡 MANDATORY CONTEXTUAL SUGGESTIONS: At the very end of your response, on a completely new line, ALWAYS provide 2 to 3 short context-specific replies or follow-up questions the student can tap to answer your question or continue the conversation.
+Format it EXACTLY as:
+SUGGESTIONS: <Option 1> | <Option 2> | <Option 3>
 """;
   }
 
@@ -91,6 +94,83 @@ Strict Teaching Rules:
     return null;
   }
 
+  /// Parse response into clean text and context-aware suggestions
+  static Map<String, dynamic> parseResponseAndSuggestions(String rawResponse) {
+    final suggestionsRegex = RegExp(r'SUGGESTIONS:\s*(.*)', caseSensitive: false, multiLine: true);
+    final match = suggestionsRegex.firstMatch(rawResponse);
+
+    String cleanText = rawResponse;
+    List<String> suggestions = [];
+
+    if (match != null) {
+      cleanText = rawResponse.replaceAll(suggestionsRegex, '').trim();
+      final suggestionsStr = match.group(1) ?? '';
+      final rawList = suggestionsStr.split('|');
+      for (var s in rawList) {
+        var cleaned = s.trim();
+        if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
+          cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+        }
+        if (cleaned.isNotEmpty && cleaned.length > 2) {
+          suggestions.add(cleaned);
+        }
+      }
+    }
+
+    // Dynamic contextual fallback generation based on the text if no suggestions tag found
+    if (suggestions.isEmpty) {
+      suggestions = generateDynamicFallbacks(cleanText);
+    }
+
+    return {
+      'cleanText': cleanText.isNotEmpty ? cleanText : rawResponse,
+      'suggestions': suggestions,
+    };
+  }
+
+  /// Generates dynamic contextual follow-up questions/replies based on the message content
+  static List<String> generateDynamicFallbacks(String text) {
+    final lower = text.toLowerCase();
+
+    if (lower.contains('what') || lower.contains('tell me') || lower.contains('which')) {
+      return [
+        "Let me share my thoughts!",
+        "Could you give an example first?",
+        "What's your recommendation?",
+      ];
+    } else if (lower.contains('how')) {
+      return [
+        "Can you break it down step-by-step?",
+        "How can I practice this daily?",
+        "Is there a simpler way?",
+      ];
+    } else if (lower.contains('why') || lower.contains('explain')) {
+      return [
+        "That makes total sense!",
+        "Why is that so common?",
+        "Can we test it with a sentence?",
+      ];
+    } else if (lower.contains('?') || lower.contains('do you') || lower.contains('have you') || lower.contains('are you')) {
+      return [
+        "Yes, absolutely!",
+        "Not quite, tell me more.",
+        "How would a native speaker answer?",
+      ];
+    } else if (lower.contains('mistake') || lower.contains('tip') || lower.contains('say')) {
+      return [
+        "Thanks for the correction! ✨",
+        "Let me try another sentence.",
+        "What are other common errors?",
+      ];
+    }
+
+    return [
+      "Let's practice a conversation!",
+      "Teach me a new idiom for this.",
+      "How do I sound more natural?",
+    ];
+  }
+
   /// Gets a complete chat response from the Gemini API with automatic model failover.
   Future<String> getChatResponse(
     String message,
@@ -112,38 +192,27 @@ Strict Teaching Rules:
           'parts': [
             {
               'text':
-                  "Hello! I'm Nancy, your English tutor at DigiWellie. I'm excited to practice with you at your $userLevel level! What's on your mind today?"
+                  "Hello! I'm Nancy, your English tutor at DigiWellie. I'm excited to practice with you at your $userLevel level! What's on your mind today?\nSUGGESTIONS: Help me practice speaking! | Teach me a new phrase | How can I improve my fluency?"
             }
           ]
         }
       ];
 
-      // Add recent history
-      final recentHistory = history.length > 15 ? history.sublist(history.length - 15) : history;
-      for (var msg in recentHistory) {
-        String role = msg['role'] == 'user' ? 'user' : 'model';
+      // Add conversation history
+      for (final h in history) {
         contents.add({
-          'role': role,
+          'role': h['role'] == 'user' ? 'user' : 'model',
           'parts': [
-            {'text': msg['content'] ?? ''}
+            {'text': h['content'] ?? ''}
           ]
         });
       }
-
-      // Add current message
-      contents.add({
-        'role': 'user',
-        'parts': [
-          {'text': message}
-        ]
-      });
 
       final requestBody = jsonEncode({
         'contents': contents,
         'generationConfig': {
           'temperature': 0.7,
-          'topP': 0.95,
-          'maxOutputTokens': 500,
+          'maxOutputTokens': 300,
         },
       });
 
@@ -170,10 +239,10 @@ Strict Teaching Rules:
       }
 
       // Fallback friendly teacher response if all models are momentarily busy
-      return "I'm experiencing high server demand for a few moments, but I'm right here with you! 🌟 Let's try sending that once more.";
+      return "I'm right here with you! 🌟 Let's continue practicing together. What topic would you like to explore?\nSUGGESTIONS: Daily conversation | Travel & food | Business English";
     } catch (e) {
       debugPrint('GeminiService exception: $e');
-      return "Connection was a bit busy! 🌟 Please tap send again so we can continue practicing.";
+      return "I'm ready whenever you are! 🌟 Tap below to choose a topic or type anything.\nSUGGESTIONS: Tell me a story | Practice interview | Useful idioms";
     }
   }
 
@@ -182,9 +251,16 @@ Strict Teaching Rules:
     String lastBotMessage, {
     String userLevel = 'Intermediate',
   }) async {
+    // If the message already has parsed suggestions in it, return them directly
+    final parsed = parseResponseAndSuggestions(lastBotMessage);
+    final suggestions = parsed['suggestions'] as List<String>;
+    if (suggestions.isNotEmpty) {
+      return suggestions;
+    }
+
     try {
-      final prompt = """Based on this teacher message: "$lastBotMessage"
-Provide 3 natural, short English student replies (each 2-5 words) that a $userLevel English learner could tap to respond.
+      final prompt = """Based on this English teacher message: "${parsed['cleanText']}"
+Provide 3 short, natural student replies (each 2-5 words) that a $userLevel English learner could tap to respond or ask next.
 Return ONLY a valid JSON array of 3 strings, example: ["Yes, I did!", "Can you give an example?", "Tell me more"]""";
 
       final requestBody = jsonEncode({
@@ -206,7 +282,7 @@ Return ONLY a valid JSON array of 3 strings, example: ["Yes, I did!", "Can you g
 
       if (response != null && response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        final parts = jsonResponse['candidates']?[0]?['content']?['parts'];
+        final parts = jsonResponse['candidates']?[0]?['content']?[0]?['parts'] ?? jsonResponse['candidates']?[0]?['content']?['parts'];
         if (parts != null && parts.isNotEmpty) {
           String raw = parts[0]['text'] ?? '';
           raw = raw.replaceAll(RegExp(r'```json|```'), '').trim();
@@ -214,8 +290,8 @@ Return ONLY a valid JSON array of 3 strings, example: ["Yes, I did!", "Can you g
           final endIdx = raw.lastIndexOf(']');
           if (startIdx != -1 && endIdx != -1 && endIdx > startIdx) {
             final jsonSubstring = raw.substring(startIdx, endIdx + 1);
-            final List<dynamic> parsed = jsonDecode(jsonSubstring);
-            return parsed.map((e) => e.toString().trim()).toList();
+            final List<dynamic> parsedList = jsonDecode(jsonSubstring);
+            return parsedList.map((e) => e.toString().trim()).toList();
           }
         }
       }
@@ -223,11 +299,6 @@ Return ONLY a valid JSON array of 3 strings, example: ["Yes, I did!", "Can you g
       debugPrint('Error generating suggestions: $e');
     }
 
-    // Default contextual fallbacks
-    return [
-      "Can you give an example?",
-      "How do I say this better?",
-      "Let's practice a topic!",
-    ];
+    return generateDynamicFallbacks(lastBotMessage);
   }
 }

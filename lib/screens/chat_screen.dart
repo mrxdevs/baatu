@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -31,11 +30,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isTyping = false;
   String _userLevel = 'Intermediate';
   String? _currentlySpeakingMessageId;
+  bool _autoSpeak = true;
 
   List<String> _suggestedReplies = [
-    "Hello Nancy!",
     "Help me practice speaking!",
     "Teach me a new phrase today",
+    "How can I improve my fluency?",
   ];
 
   @override
@@ -94,7 +94,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Strip markdown formatting symbols for speech
     final cleanText = text
         .replaceAll(RegExp(r'\*\*|\*|`|#|_'), '')
-        .replaceAll(RegExp(r'✨|🎯|🗣️|✂️|📏|🎓|❓|📈|🚫'), '')
+        .replaceAll(RegExp(r'✨|🎯|🗣️|✂️|📏|🎓|❓|📈|🚫|💡|☕|🥣|😅'), '')
         .trim();
 
     setState(() {
@@ -177,11 +177,19 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _currentSession = updated;
         _isTyping = false;
+        _suggestedReplies = [
+          "My day was great!",
+          "I was quite busy today.",
+          "Tell me something interesting!",
+        ];
       });
 
       await _historyService.saveSession(updated);
-      _refreshSuggestedReplies();
       _scrollToBottom();
+
+      if (_autoSpeak) {
+        _speakText(botMsg.id, botMsg.content);
+      }
     }
   }
 
@@ -237,6 +245,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _currentSession = intermediateSession;
       _isTyping = true;
+      _suggestedReplies = []; // Immediately clear old suggestions during thinking
     });
 
     _scrollToBottom();
@@ -250,16 +259,20 @@ class _ChatScreenState extends State<ChatScreen> {
         .toList();
 
     try {
-      final responseText = await _geminiService.getChatResponse(
+      final rawResponseText = await _geminiService.getChatResponse(
         text,
         apiHistory,
         userLevel: _userLevel,
       );
 
+      final parsed = GeminiService.parseResponseAndSuggestions(rawResponseText);
+      final cleanText = parsed['cleanText'] as String;
+      final newSuggestions = parsed['suggestions'] as List<String>;
+
       final botMsg = ChatMessageModel(
         id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
         role: 'model',
-        content: responseText,
+        content: cleanText,
         timestamp: DateTime.now(),
       );
 
@@ -276,12 +289,16 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         setState(() {
           _currentSession = finalSession;
+          _suggestedReplies = newSuggestions;
           _isTyping = false;
         });
 
         await _historyService.saveSession(finalSession);
-        _refreshSuggestedReplies();
         _scrollToBottom();
+
+        if (_autoSpeak) {
+          _speakText(botMsg.id, botMsg.content);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -332,7 +349,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _sendInitialGreeting();
   }
 
-  void _showSessionHistoryModal() async {
+  /// Single Unified Settings & Tools Modal
+  void _showUnifiedSettingsModal() async {
     final sessions = await _historyService.getSessions();
     setState(() => _allSessions = sessions);
 
@@ -341,124 +359,368 @@ class _ChatScreenState extends State<ChatScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Container(
-              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 25,
+                    offset: Offset(0, -5),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.75,
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Drag Handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
+                  // Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Chat Sessions History',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF8E4585),
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8E4585).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.tune_rounded,
+                              color: Color(0xFF8E4585),
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Nancy Teacher Settings',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF8E4585),
+                                ),
+                              ),
+                              Text(
+                                'Customise voice, level & chat sessions',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Icons.close, color: Colors.grey),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _startNewSession();
-                    },
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    label: const Text('Start New Session', style: TextStyle(color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8E4585),
-                      minimumSize: const Size(double.infinity, 45),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
                   const SizedBox(height: 16),
-                  Expanded(
-                    child: _allSessions.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No previous sessions yet.\nStart chatting with Nancy!',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: _allSessions.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final s = _allSessions[index];
-                              final isCurrent = s.id == _currentSession?.id;
+                  const Divider(height: 1),
 
-                              return ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                leading: CircleAvatar(
-                                  backgroundColor: isCurrent
-                                      ? const Color(0xFF8E4585)
-                                      : const Color(0xFF8E4585).withOpacity(0.1),
-                                  child: Icon(
-                                    Icons.chat_bubble_outline,
-                                    color: isCurrent ? Colors.white : const Color(0xFF8E4585),
-                                    size: 20,
-                                  ),
-                                ),
-                                title: Text(
-                                  s.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                                    color: isCurrent ? const Color(0xFF8E4585) : Colors.black87,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  '${s.messages.length} messages • Level: ${s.userLevel}',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                  onPressed: () async {
-                                    await _historyService.deleteSession(s.id);
-                                    final updated = await _historyService.getSessions();
-                                    setModalState(() {
-                                      _allSessions = updated;
-                                    });
-                                    setState(() {
-                                      _allSessions = updated;
-                                    });
-                                    if (isCurrent && updated.isNotEmpty) {
-                                      _historyService.setActiveSessionId(updated.first.id);
-                                      setState(() => _currentSession = updated.first);
-                                    }
-                                  },
-                                ),
-                                onTap: () async {
-                                  await _historyService.setActiveSessionId(s.id);
-                                  Navigator.pop(context);
-                                  setState(() {
-                                    _currentSession = s;
-                                    _userLevel = s.userLevel;
-                                  });
-                                  _refreshSuggestedReplies();
-                                  _scrollToBottom();
-                                },
-                              );
-                            },
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      children: [
+                        // 1. AUTO-SPEAK SETTING
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9F6FA),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFF8E4585).withOpacity(0.15),
+                            ),
                           ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: _autoSpeak
+                                      ? const Color(0xFF8E4585)
+                                      : Colors.grey[300],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  _autoSpeak
+                                      ? Icons.record_voice_over_rounded
+                                      : Icons.voice_over_off_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Auto-Speak Responses',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _autoSpeak
+                                          ? 'Nancy automatically reads out each reply'
+                                          : 'Responses appear silently (tap to read)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch.adaptive(
+                                value: _autoSpeak,
+                                activeColor: const Color(0xFF8E4585),
+                                onChanged: (val) {
+                                  setModalState(() => _autoSpeak = val);
+                                  setState(() => _autoSpeak = val);
+                                  if (!_autoSpeak && _currentlySpeakingMessageId != null) {
+                                    _flutterTts.stop();
+                                    setState(() => _currentlySpeakingMessageId = null);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // 2. LEARNING LEVEL SELECTOR
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Learning Level',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF8E4585),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8E4585).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Current: $_userLevel',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF8E4585),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            _buildLevelOption(
+                              level: 'Beginner',
+                              label: '🟢 Beginner',
+                              desc: 'Foundations',
+                              setModalState: setModalState,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildLevelOption(
+                              level: 'Intermediate',
+                              label: '🟡 Inter',
+                              desc: 'Fluency',
+                              setModalState: setModalState,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildLevelOption(
+                              level: 'Advanced',
+                              label: '🟣 Advanced',
+                              desc: 'Nuances',
+                              setModalState: setModalState,
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // 3. SESSION HISTORY & START NEW
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Chat History & Sessions',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF8E4585),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () {
+                                Navigator.pop(context);
+                                _startNewSession();
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF8E4585),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add, color: Colors.white, size: 15),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'New Chat',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        _allSessions.isEmpty
+                            ? Container(
+                                padding: const EdgeInsets.all(20),
+                                alignment: Alignment.center,
+                                child: const Text(
+                                  'No saved sessions yet.\nStart learning with Nancy!',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                                ),
+                              )
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _allSessions.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                                itemBuilder: (context, index) {
+                                  final s = _allSessions[index];
+                                  final isCurrent = s.id == _currentSession?.id;
+
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: isCurrent
+                                          ? const Color(0xFF8E4585).withOpacity(0.08)
+                                          : Colors.grey[50],
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isCurrent
+                                            ? const Color(0xFF8E4585).withOpacity(0.3)
+                                            : Colors.grey[200]!,
+                                      ),
+                                    ),
+                                    child: ListTile(
+                                      dense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                      leading: CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: isCurrent
+                                            ? const Color(0xFF8E4585)
+                                            : Colors.grey[300],
+                                        child: Icon(
+                                          Icons.chat_bubble_outline,
+                                          color: isCurrent ? Colors.white : Colors.grey[700],
+                                          size: 16,
+                                        ),
+                                      ),
+                                      title: Text(
+                                        s.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                          color: isCurrent
+                                              ? const Color(0xFF8E4585)
+                                              : Colors.black87,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        '${s.messages.length} msgs • ${s.userLevel}',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                      ),
+                                      trailing: IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.redAccent,
+                                          size: 18,
+                                        ),
+                                        onPressed: () async {
+                                          await _historyService.deleteSession(s.id);
+                                          final updated = await _historyService.getSessions();
+                                          setModalState(() {
+                                            _allSessions = updated;
+                                          });
+                                          setState(() {
+                                            _allSessions = updated;
+                                          });
+                                          if (isCurrent && updated.isNotEmpty) {
+                                            _historyService.setActiveSessionId(updated.first.id);
+                                            setState(() => _currentSession = updated.first);
+                                          }
+                                        },
+                                      ),
+                                      onTap: () async {
+                                        await _historyService.setActiveSessionId(s.id);
+                                        if (context.mounted) {
+                                          Navigator.pop(context);
+                                        }
+                                        setState(() {
+                                          _currentSession = s;
+                                          _userLevel = s.userLevel;
+                                        });
+                                        _refreshSuggestedReplies();
+                                        _scrollToBottom();
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -469,128 +731,75 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _showLevelSelectorModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Select Learning Level',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF8E4585),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Nancy will immediately adapt her vocabulary, speed, and sentence complexity.',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 20),
-              _buildLevelTile(
-                level: 'Beginner',
-                title: '🟢 Beginner (Foundations)',
-                desc: 'Simple everyday words, short sentences, and friendly gentle guidance.',
-              ),
-              const SizedBox(height: 10),
-              _buildLevelTile(
-                level: 'Intermediate',
-                title: '🟡 Intermediate (Conversational)',
-                desc: 'Everyday conversations, common idioms, sentence variation, and fluency.',
-              ),
-              const SizedBox(height: 10),
-              _buildLevelTile(
-                level: 'Advanced',
-                title: '🟣 Advanced (Nuance & Mastery)',
-                desc: 'Rich vocabulary, complex phrases, formal vs informal nuances, and precision.',
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLevelTile({
+  Widget _buildLevelOption({
     required String level,
-    required String title,
+    required String label,
     required String desc,
+    required StateSetter setModalState,
   }) {
     final isSelected = _userLevel == level;
 
-    return InkWell(
-      onTap: () async {
-        Navigator.pop(context);
-        if (_userLevel == level) return;
+    return Expanded(
+      child: InkWell(
+        onTap: () async {
+          if (_userLevel == level) return;
 
-        setState(() {
-          _userLevel = level;
-        });
+          setModalState(() => _userLevel = level);
+          setState(() => _userLevel = level);
 
-        await _historyService.saveUserLevel(level);
+          await _historyService.saveUserLevel(level);
 
-        if (_currentSession != null) {
-          final updated = ChatSessionModel(
-            id: _currentSession!.id,
-            title: _currentSession!.title,
-            createdAt: _currentSession!.createdAt,
-            updatedAt: DateTime.now(),
-            userLevel: level,
-            messages: _currentSession!.messages,
-          );
-          setState(() => _currentSession = updated);
-          await _historyService.saveSession(updated);
-        }
+          if (_currentSession != null) {
+            final updated = ChatSessionModel(
+              id: _currentSession!.id,
+              title: _currentSession!.title,
+              createdAt: _currentSession!.createdAt,
+              updatedAt: DateTime.now(),
+              userLevel: level,
+              messages: _currentSession!.messages,
+            );
+            setState(() => _currentSession = updated);
+            await _historyService.saveSession(updated);
+          }
 
-        // Notify Nancy of level change
-        _handleSendMessage(
-          customMessage: "I've changed my learning level to $level. Please adapt your questions and feedback!",
-        );
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF8E4585).withOpacity(0.08) : Colors.grey[50],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF8E4585) : Colors.grey[300]!,
-            width: isSelected ? 1.8 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: isSelected ? const Color(0xFF8E4585) : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(desc, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                ],
-              ),
+          if (mounted) {
+            _handleSendMessage(
+              customMessage:
+                  "I've changed my learning level to $level. Please adapt your questions and feedback!",
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF8E4585).withOpacity(0.12) : Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? const Color(0xFF8E4585) : Colors.grey[300]!,
+              width: isSelected ? 1.5 : 1,
             ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: Color(0xFF8E4585), size: 22),
-          ],
+          ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? const Color(0xFF8E4585) : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isSelected ? const Color(0xFF8E4585) : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -657,7 +866,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   Text(
-                    _isTyping ? 'Typing feedback...' : 'Active Tutor • DigiWellie',
+                    _isTyping ? 'Typing feedback...' : '$_userLevel Tutor • DigiWellie',
                     style: TextStyle(
                       fontSize: 11,
                       color: _isTyping ? const Color(0xFF8E4585) : Colors.grey[600],
@@ -670,47 +879,26 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
-          // Level selector chip
-          GestureDetector(
-            onTap: _showLevelSelectorModal,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E4585).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF8E4585).withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _userLevel == 'Beginner'
-                        ? '🟢 Beg'
-                        : _userLevel == 'Advanced'
-                            ? '🟣 Adv'
-                            : '🟡 Inter',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF8E4585),
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: Color(0xFF8E4585), size: 16),
-                ],
+          // Cool Unified Settings & History Button
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF8E4585).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF8E4585).withOpacity(0.3),
+                width: 1,
               ),
             ),
-          ),
-          // History & New Session Actions
-          IconButton(
-            icon: const Icon(Icons.history, color: Color(0xFF8E4585)),
-            tooltip: 'Session History',
-            onPressed: _showSessionHistoryModal,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF8E4585)),
-            tooltip: 'New Chat Session',
-            onPressed: _startNewSession,
+            child: IconButton(
+              icon: const Icon(
+                Icons.tune_rounded,
+                color: Color(0xFF8E4585),
+                size: 22,
+              ),
+              tooltip: 'Settings, Level & History',
+              onPressed: _showUnifiedSettingsModal,
+            ),
           ),
         ],
       ),
@@ -723,7 +911,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                       itemCount: (_currentSession?.messages.length ?? 0) + (_isTyping ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index == _currentSession?.messages.length && _isTyping) {
@@ -737,31 +925,75 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
 
-                  // Interactive Suggestion Chips
+                  // Interactive Dynamic Suggestion Chips
                   if (_suggestedReplies.isNotEmpty && !_isTyping)
                     Container(
-                      height: 42,
-                      margin: const EdgeInsets.only(bottom: 6),
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _suggestedReplies.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (context, i) {
-                          final text = _suggestedReplies[i];
-                          return ActionChip(
-                            label: Text(text, style: const TextStyle(fontSize: 12)),
-                            backgroundColor: Colors.white,
-                            side: BorderSide(color: const Color(0xFF8E4585).withOpacity(0.3)),
-                            labelStyle: const TextStyle(
-                              color: Color(0xFF8E4585),
-                              fontWeight: FontWeight.w500,
+                      padding: const EdgeInsets.only(left: 14, right: 14, bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.auto_awesome,
+                                size: 12,
+                                color: Color(0xFF8E4585),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Suggested follow-ups:',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            height: 36,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _suggestedReplies.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 8),
+                              itemBuilder: (context, i) {
+                                final text = _suggestedReplies[i];
+                                return GestureDetector(
+                                  onTap: () => _handleSendMessage(customMessage: text),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: const Color(0xFF8E4585).withOpacity(0.35),
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        text,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF8E4585),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            elevation: 1,
-                            shadowColor: Colors.black.withOpacity(0.04),
-                            onPressed: () => _handleSendMessage(customMessage: text),
-                          );
-                        },
+                          ),
+                        ],
                       ),
                     ),
 
@@ -796,7 +1028,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               decoration: InputDecoration(
                                 hintText: _isTyping
                                     ? 'Nancy is thinking...'
-                                    : 'Reply in English (micro-sentences)...',
+                                    : 'Reply in English or tap suggestion...',
                                 hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                                 border: InputBorder.none,
                                 isDense: true,
@@ -882,8 +1114,12 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 4),
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    Text(
+                      _formatTime(msg.timestamp),
+                      style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                    ),
+                    const SizedBox(width: 8),
                     InkWell(
                       onTap: () => _speakText(msg.id, msg.content),
                       borderRadius: BorderRadius.circular(12),
@@ -892,17 +1128,19 @@ class _ChatScreenState extends State<ChatScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              isSpeaking ? Icons.volume_up : Icons.volume_up_outlined,
-                              size: 16,
-                              color: isSpeaking ? Colors.green : const Color(0xFF8E4585),
+                              isSpeaking
+                                  ? Icons.stop_circle_outlined
+                                  : Icons.volume_up_outlined,
+                              size: 14,
+                              color: isSpeaking ? Colors.redAccent : const Color(0xFF8E4585),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 2),
                             Text(
-                              isSpeaking ? 'Listening...' : 'Listen',
+                              isSpeaking ? 'Stop' : 'Listen',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isSpeaking ? Colors.green : const Color(0xFF8E4585),
-                                fontWeight: FontWeight.w500,
+                                color: isSpeaking ? Colors.redAccent : const Color(0xFF8E4585),
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -915,9 +1153,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         Clipboard.setData(ClipboardData(text: msg.content));
                         _showSnackbar('Message copied to clipboard');
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        child: Icon(Icons.copy_outlined, size: 14, color: Colors.grey),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Icon(Icons.copy_rounded, size: 13, color: Colors.grey[500]),
                       ),
                     ),
                   ],
@@ -925,7 +1163,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 40),
         ],
       ),
     );
@@ -938,34 +1175,47 @@ class _ChatScreenState extends State<ChatScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(width: 45),
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E4585),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  topRight: Radius.circular(4),
-                  bottomLeft: Radius.circular(18),
-                  bottomRight: Radius.circular(18),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF8E4585).withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF8E4585), Color(0xFFA05295)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      topRight: Radius.circular(4),
+                      bottomLeft: Radius.circular(18),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF8E4585).withOpacity(0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Text(
-                msg.content,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: Colors.white,
-                  height: 1.35,
+                  child: Text(
+                    msg.content,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Colors.white,
+                      height: 1.35,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatTime(msg.timestamp),
+                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 8),
@@ -994,14 +1244,24 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: const Color(0xFFF8E7F8),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildDot(0),
-                _buildDot(1),
-                _buildDot(2),
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E4585)),
+                  ),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Nancy is formulating tips...',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF8E4585)),
+                ),
               ],
             ),
           ),
@@ -1010,22 +1270,10 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildDot(int index) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 400 + (index * 150)),
-      curve: Curves.easeInOut,
-      builder: (context, value, child) {
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          height: 6 + (value * 3),
-          width: 6,
-          decoration: BoxDecoration(
-            color: const Color(0xFF8E4585),
-            borderRadius: BorderRadius.circular(3),
-          ),
-        );
-      },
-    );
+  String _formatTime(DateTime dt) {
+    final h = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final m = dt.minute.toString().padLeft(2, '0');
+    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$h:$m $ampm';
   }
 }
