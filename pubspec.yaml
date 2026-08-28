@@ -67,6 +67,7 @@ dependencies:
   animated_text_kit: ^4.2.2
   avatar_glow: ^3.0.1
   speech_to_text: ^7.0.0
+  rive: ^0.13.17
 
   # Remove contacts_service
   # contacts_service: ^0.6.3
@@ -124,5 +125,6 @@ flutter:
   assets:
     - assets/images/
     - assets/lottie/
+    - assets/rive/
     - .env
     # - assets/images/logo.png

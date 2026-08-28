@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:ui';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -8,6 +7,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../core/config/env_config.dart';
 import '../../services/gemini_service.dart';
 import '../../utils/app_styles.dart';
+import '../../widgets/sia_character.dart';
 
 class LiveAiTeacherScreen extends StatefulWidget {
   const LiveAiTeacherScreen({super.key});
@@ -19,15 +19,11 @@ class LiveAiTeacherScreen extends StatefulWidget {
 
 typedef AiTeacherScreen = LiveAiTeacherScreen;
 
-class _LiveAiTeacherScreenState extends State<LiveAiTeacherScreen> with TickerProviderStateMixin {
+class _LiveAiTeacherScreenState extends State<LiveAiTeacherScreen> {
   // Controllers
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  late AnimationController _pulseController;
-  late AnimationController _waveController;
-  late AnimationController _rotationController;
-  late Animation<double> _pulseAnimation;
-  late Animation<double> _waveAnimation;
+  // Note: Old animation controllers removed — SiaCharacterWidget manages its own animations
 
   // Gemini AI
   late GenerativeModel _model;
@@ -67,7 +63,6 @@ class _LiveAiTeacherScreenState extends State<LiveAiTeacherScreen> with TickerPr
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
     _initializeAI();
     _initializeTTS();
 
@@ -80,31 +75,6 @@ class _LiveAiTeacherScreenState extends State<LiveAiTeacherScreen> with TickerPr
     _addWelcomeMessage();
   }
 
-  void _initializeAnimations() {
-    // Pulse animation for the avatar
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    // Wave animation for speaking state
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..repeat();
-
-    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_waveController);
-
-    // Rotation animation
-    _rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..repeat();
-  }
 
   void _initializeAI() {
     final apiKey = EnvConfig.googleApiKey;
@@ -897,9 +867,6 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _pulseController.dispose();
-    _waveController.dispose();
-    _rotationController.dispose();
     _flutterTts.stop();
     super.dispose();
   }
@@ -989,23 +956,74 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
         ),
         child: Stack(
           children: [
-            // Background animated circles
-            ..._buildBackgroundCircles(),
-
-            // Avatar in CENTER BACKGROUND - Fixed position
+            // ── Full-screen Sia Character (background layer) ──
             Positioned.fill(
-              child: Center(
-                child: _buildAvatarSection(),
+              child: GestureDetector(
+                onTap: () {
+                  if (_isSpeaking) {
+                    _stopSpeaking();
+                  } else if (!_isListening && !_isLoading) {
+                    _toggleListening();
+                  }
+                },
+                child: SiaCharacterWidget(
+                  state: _mapAvatarStateToSiaState(),
+                  isSpeaking: _isSpeaking,
+                  currentWordIndex: _currentWordIndex,
+                  totalWords: _currentSpeakingWords.length,
+                ),
               ),
             ),
 
-            // Chat Messages & Dynamic Suggestions - ON TOP of avatar, scrollable
+            // ── Status text overlay on character ──
+            Positioned(
+              top: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Container(
+                    key: ValueKey(_avatarState),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _getAvatarColor().withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Text(
+                      _getStatusText(),
+                      style: TextStyle(
+                        color: _getAvatarColor(),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Poppins',
+                        shadows: [
+                          Shadow(
+                            color: _getAvatarColor().withValues(alpha: 0.5),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Chat Messages & Input (overlay on lower portion) ──
             Positioned.fill(
               child: SafeArea(
                 child: Column(
                   children: [
-                    // Chat takes most space
+                    // Spacer — let character show in the top ~45%
+                    const Spacer(flex: 4),
+                    // Chat takes remaining space
                     Expanded(
+                      flex: 5,
                       child: _buildChatSection(),
                     ),
                     // Context-aware dynamic suggestions bar
@@ -1022,260 +1040,22 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
     );
   }
 
-  List<Widget> _buildBackgroundCircles() {
-    return [
-      Positioned(
-        top: -100,
-        right: -100,
-        child: AnimatedBuilder(
-          animation: _rotationController,
-          builder: (context, child) {
-            return Transform.rotate(
-              angle: _rotationController.value * 2 * math.pi,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      _getAvatarColor().withValues(alpha: 0.15),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      Positioned(
-        bottom: 100,
-        left: -50,
-        child: Container(
-          width: 200,
-          height: 200,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                Colors.purple.withValues(alpha: 0.1),
-                Colors.transparent,
-              ],
-            ),
-          ),
-        ),
-      ),
-    ];
-  }
-
-  Widget _buildAvatarSection() {
-    return GestureDetector(
-      onTap: () {
-        if (_isSpeaking) {
-          _stopSpeaking();
-        } else if (!_isListening && !_isLoading) {
-          _toggleListening();
-        }
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Avatar with dynamic effects
-          AnimatedBuilder(
-            animation: _pulseAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _isSpeaking ? _pulseAnimation.value : 1.0,
-                child: _buildInteractiveAvatar(),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-
-          // Status Text with animation
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: Text(
-              _getStatusText(),
-              key: ValueKey(_avatarState),
-              style: TextStyle(
-                color: _getAvatarColor(),
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
-                shadows: [
-                  Shadow(
-                    color: _getAvatarColor().withValues(alpha: 0.5),
-                    blurRadius: 10,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Tap hint
-          if (_avatarState == AvatarState.idle)
-            Text(
-              'Tap to speak',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 11,
-                fontFamily: 'Poppins',
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInteractiveAvatar() {
-    return SizedBox(
-      width: 220,
-      height: 220,
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          // Outer glow rings
-          if (_isSpeaking || _isListening) ...[
-            AnimatedBuilder(
-              animation: _waveAnimation,
-              builder: (context, child) {
-                return Container(
-                  width: 180 + (_waveAnimation.value * 40),
-                  height: 180 + (_waveAnimation.value * 40),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color:
-                          _getAvatarColor().withValues(alpha: 0.3 - (_waveAnimation.value * 0.3)),
-                      width: 2,
-                    ),
-                  ),
-                );
-              },
-            ),
-            AnimatedBuilder(
-              animation: _waveAnimation,
-              builder: (context, child) {
-                return Container(
-                  width: 160 + (_waveAnimation.value * 60),
-                  height: 160 + (_waveAnimation.value * 60),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color:
-                          _getAvatarColor().withValues(alpha: 0.2 - (_waveAnimation.value * 0.2)),
-                      width: 1.5,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-
-          // Main avatar container
-          Container(
-            width: 140,
-            height: 140,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _getAvatarColor().withValues(alpha: 0.3),
-                  _getAvatarColor().withValues(alpha: 0.1),
-                ],
-              ),
-              border: Border.all(
-                color: _getAvatarColor().withValues(alpha: 0.5),
-                width: 3,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _getAvatarColor().withValues(alpha: 0.4),
-                  blurRadius: 30,
-                  spreadRadius: 5,
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  alignment: Alignment.center,
-                  child: _buildAvatarContent(),
-                ),
-              ),
-            ),
-          ),
-
-          // Sound wave bars for speaking state
-          if (_isSpeaking)
-            Positioned(
-              bottom: 20,
-              child: _buildSoundWaves(),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAvatarContent() {
-    IconData iconData;
-    double iconSize = 60;
-
+  /// Maps the local AvatarState enum to the SiaCharacterWidget's SiaState.
+  SiaState _mapAvatarStateToSiaState() {
     switch (_avatarState) {
       case AvatarState.idle:
-        iconData = Icons.school_rounded;
-        break;
+        return SiaState.idle;
       case AvatarState.listening:
-        iconData = Icons.mic_rounded;
-        break;
+        return SiaState.listening;
       case AvatarState.thinking:
-        iconData = Icons.psychology_rounded;
-        break;
+        return SiaState.thinking;
       case AvatarState.speaking:
-        iconData = Icons.record_voice_over_rounded;
-        break;
+        return SiaState.speaking;
     }
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: Icon(
-        iconData,
-        key: ValueKey(_avatarState),
-        size: iconSize,
-        color: _getAvatarColor(),
-      ),
-    );
   }
 
-  Widget _buildSoundWaves() {
-    return AnimatedBuilder(
-      animation: _waveAnimation,
-      builder: (context, child) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(5, (index) {
-            final offset = (index - 2).abs() * 0.15;
-            final height = 8.0 + (math.sin((_waveAnimation.value + offset) * math.pi * 2) * 8);
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              width: 4,
-              height: height,
-              decoration: BoxDecoration(
-                color: _getAvatarColor(),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            );
-          }),
-        );
-      },
-    );
-  }
+
+
 
   Color _getAvatarColor() {
     switch (_avatarState) {
