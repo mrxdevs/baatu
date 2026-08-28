@@ -71,3 +71,28 @@ class DailyWordsResponse {
     );
   }
 }
+
+class WordHistoryItem {
+  final String date;
+  final DailyWord word;
+
+  WordHistoryItem({
+    required this.date,
+    required this.word,
+  });
+
+  factory WordHistoryItem.fromJson(Map<String, dynamic> json) {
+    return WordHistoryItem(
+      date: json['date'] ?? '',
+      word: DailyWord.fromJson(json['word'] ?? {}),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date,
+      'word': word.toJson(),
+    };
+  }
+}
+

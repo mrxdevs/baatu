@@ -9,11 +9,21 @@ class DailyWordsService {
 
   DailyWordsService() : _baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:8080';
 
-  /// Get today's vocabulary words (10 words)
-  Future<DailyWordsResponse> getDailyWords() async {
+  /// Format date to YYYY-MM-DD
+  String _formatDate(DateTime date) {
+    return "${date.year.toString().padLeft(4, '0')}-"
+        "${date.month.toString().padLeft(2, '0')}-"
+        "${date.day.toString().padLeft(2, '0')}";
+  }
+
+  /// Get vocabulary words (10 words) for a specific date (defaults to today)
+  Future<DailyWordsResponse> getDailyWords({DateTime? date}) async {
+    final targetDate = date ?? DateTime.now();
+    final dateStr = _formatDate(targetDate);
+
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/v1/words/daily'),
+        Uri.parse('$_baseUrl/api/v1/words/daily?date=$dateStr'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -26,15 +36,18 @@ class DailyWordsService {
     } catch (e) {
       print('Error fetching daily words: $e');
       // Return mock data for development/testing
-      return _getMockDailyWords();
+      return _getMockDailyWords(targetDate);
     }
   }
 
-  /// Get today's featured word only
-  Future<DailyWord> getWordOfDay() async {
+  /// Get featured word only for a specific date (defaults to today)
+  Future<DailyWord> getWordOfDay({DateTime? date}) async {
+    final targetDate = date ?? DateTime.now();
+    final dateStr = _formatDate(targetDate);
+
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/v1/words/today'),
+        Uri.parse('$_baseUrl/api/v1/words/today?date=$dateStr'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -47,6 +60,27 @@ class DailyWordsService {
     } catch (e) {
       print('Error fetching word of the day: $e');
       return _getMockWordOfDay();
+    }
+  }
+
+  /// Get past Words of the Day history
+  Future<List<WordHistoryItem>> getWordHistory({int limit = 30, int offset = 0}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/api/v1/words/history?limit=$limit&offset=$offset'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        final list = jsonData['data']?['history'] as List<dynamic>? ?? [];
+        return list.map((item) => WordHistoryItem.fromJson(item)).toList();
+      } else {
+        throw Exception('Failed to load word history: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching word history: $e');
+      return [];
     }
   }
 
@@ -93,7 +127,8 @@ class DailyWordsService {
   }
 
   /// Mock data for development when API is not available
-  DailyWordsResponse _getMockDailyWords() {
+  DailyWordsResponse _getMockDailyWords([DateTime? date]) {
+    final targetDate = date ?? DateTime.now();
     final mockWords = [
       DailyWord(
         id: 1,
@@ -198,7 +233,7 @@ class DailyWordsService {
     ];
 
     return DailyWordsResponse(
-      date: DateTime.now().toIso8601String().split('T')[0],
+      date: _formatDate(targetDate),
       wordOfDay: mockWords[0],
       words: mockWords,
       totalWords: mockWords.length,

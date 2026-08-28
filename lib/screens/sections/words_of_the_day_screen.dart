@@ -20,6 +20,8 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  DateTime _selectedDate = DateTime.now();
+
   static const Color primaryColor = Color(0xFF8E4585);
   static const Color secondaryColor = Color(0xFFF8BBD0);
 
@@ -27,7 +29,7 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -42,14 +44,24 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
     super.dispose();
   }
 
-  Future<void> _loadDailyWords() async {
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
+
+  Future<void> _loadDailyWords([DateTime? date]) async {
+    if (date != null) {
+      _selectedDate = date;
+    }
+
     try {
       setState(() {
         _isLoading = true;
         _error = null;
       });
 
-      final dailyWords = await _service.getDailyWords();
+      _animationController.reset();
+      final dailyWords = await _service.getDailyWords(date: _selectedDate);
       setState(() {
         _dailyWords = dailyWords;
         _isLoading = false;
@@ -61,6 +73,64 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
         _isLoading = false;
       });
     }
+  }
+
+  void _previousDay() {
+    final prev = _selectedDate.subtract(const Duration(days: 1));
+    _loadDailyWords(prev);
+  }
+
+  void _nextDay() {
+    final next = _selectedDate.add(const Duration(days: 1));
+    final now = DateTime.now();
+    // Allow up to tomorrow or today
+    if (next.isBefore(now.add(const Duration(days: 2)))) {
+      _loadDailyWords(next);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: primaryColor,
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF333333),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      _loadDailyWords(picked);
+    }
+  }
+
+  void _showHistoryModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _WordHistoryBottomSheet(
+        service: _service,
+        onSelectHistoryDate: (selectedDate) {
+          Navigator.pop(context);
+          _loadDailyWords(selectedDate);
+        },
+        onSelectWord: (word) {
+          Navigator.pop(context);
+          _navigateToWordDetail(word);
+        },
+      ),
+    );
   }
 
   Color _getDifficultyColor(String level) {
@@ -100,6 +170,8 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isCurrentDayToday = _isToday(_selectedDate);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -107,12 +179,96 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded),
+            tooltip: 'Word History',
+            onPressed: _showHistoryModal,
+          ),
+          if (!isCurrentDayToday)
+            TextButton.icon(
+              onPressed: () => _loadDailyWords(DateTime.now()),
+              icon: const Icon(Icons.today, color: Colors.white, size: 18),
+              label: const Text('Today', style: TextStyle(color: Colors.white)),
+            ),
+        ],
       ),
-      body: _isLoading
-          ? _buildLoadingState()
-          : _error != null
-              ? _buildErrorState()
-              : _buildContent(),
+      body: Column(
+        children: [
+          _buildDateNavigationBar(),
+          Expanded(
+            child: _isLoading
+                ? _buildLoadingState()
+                : _error != null
+                    ? _buildErrorState()
+                    : _buildContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateNavigationBar() {
+    final dateFormatted = _dailyWords?.date ??
+        "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+    final isTodayDate = _isToday(_selectedDate);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, color: primaryColor, size: 28),
+            tooltip: 'Previous Day',
+            onPressed: _previousDay,
+          ),
+          InkWell(
+            onTap: _pickDate,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: secondaryColor.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: primaryColor.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.calendar_month, size: 18, color: primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    isTodayDate ? 'Today ($dateFormatted)' : dateFormatted,
+                    style: const TextStyle(
+                      color: primaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down, size: 20, color: primaryColor),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, color: primaryColor, size: 28),
+            tooltip: 'Next Day',
+            onPressed: _nextDay,
+          ),
+        ],
+      ),
     );
   }
 
@@ -124,7 +280,7 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
           const CircularProgressIndicator(color: primaryColor),
           const SizedBox(height: 16),
           Text(
-            'Loading today\'s words...',
+            'Loading vocabulary...',
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 16,
@@ -155,7 +311,7 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _loadDailyWords,
+              onPressed: () => _loadDailyWords(_selectedDate),
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
@@ -180,7 +336,7 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
     return FadeTransition(
       opacity: _fadeAnimation,
       child: RefreshIndicator(
-        onRefresh: _loadDailyWords,
+        onRefresh: () => _loadDailyWords(_selectedDate),
         color: primaryColor,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -188,41 +344,19 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDateHeader(),
-              const SizedBox(height: 20),
               _buildWordOfDayCard(),
               const SizedBox(height: 24),
-              _buildSectionTitle('Today\'s Vocabulary'),
+              _buildSectionTitle(
+                _isToday(_selectedDate)
+                    ? 'Today\'s Vocabulary'
+                    : 'Vocabulary for ${_dailyWords?.date ?? ""}',
+              ),
               const SizedBox(height: 16),
               _buildWordsGrid(),
               const SizedBox(height: 100),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildDateHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: secondaryColor.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.calendar_today, size: 16, color: primaryColor),
-          const SizedBox(width: 8),
-          Text(
-            _dailyWords?.date ?? '',
-            style: const TextStyle(
-              color: primaryColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -240,7 +374,7 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
           gradient: LinearGradient(
             colors: [
               primaryColor,
-              primaryColor.withOpacity(0.8),
+              primaryColor.withOpacity(0.85),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -375,12 +509,14 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF333333),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF333333),
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -428,7 +564,7 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
       onTap: () => _navigateToWordDetail(word),
       child: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.0, end: 1.0),
-        duration: Duration(milliseconds: 300 + (index * 50)),
+        duration: Duration(milliseconds: 250 + (index * 40)),
         curve: Curves.easeOutBack,
         builder: (context, value, child) {
           return Transform.scale(
@@ -492,7 +628,7 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   _buildDifficultyBadge(word.difficultyLevel),
-                  Spacer(),
+                  const Spacer(),
                   Icon(
                     Icons.arrow_forward_ios,
                     size: 12,
@@ -525,12 +661,213 @@ class _WordsOfTheDayScreenState extends State<WordsOfTheDayScreen>
           ),
           const SizedBox(width: 4),
           Text(
-            level.substring(0, 1).toUpperCase() + level.substring(1),
+            level.isNotEmpty
+                ? level.substring(0, 1).toUpperCase() + level.substring(1)
+                : 'Word',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
               color: light ? Colors.white : color,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WordHistoryBottomSheet extends StatefulWidget {
+  final DailyWordsService service;
+  final Function(DateTime) onSelectHistoryDate;
+  final Function(DailyWord) onSelectWord;
+
+  const _WordHistoryBottomSheet({
+    required this.service,
+    required this.onSelectHistoryDate,
+    required this.onSelectWord,
+  });
+
+  @override
+  State<_WordHistoryBottomSheet> createState() => _WordHistoryBottomSheetState();
+}
+
+class _WordHistoryBottomSheetState extends State<_WordHistoryBottomSheet> {
+  bool _loading = true;
+  List<WordHistoryItem> _history = [];
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchHistory();
+  }
+
+  Future<void> _fetchHistory() async {
+    try {
+      final history = await widget.service.getWordHistory(limit: 30);
+      setState(() {
+        _history = history;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load history';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.history, color: _WordsOfTheDayScreenState.primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Word of the Day History',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF333333),
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: _WordsOfTheDayScreenState.primaryColor,
+                    ),
+                  )
+                : _error != null
+                    ? Center(
+                        child: Text(
+                          _error!,
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      )
+                    : _history.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.calendar_today,
+                                    size: 48, color: Colors.grey[400]),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No past words recorded yet',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            itemCount: _history.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final item = _history[index];
+                              DateTime? parsedDate;
+                              try {
+                                parsedDate = DateTime.parse(item.date);
+                              } catch (_) {}
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: _WordsOfTheDayScreenState.secondaryColor
+                                        .withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.auto_awesome,
+                                    color: _WordsOfTheDayScreenState.primaryColor,
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(
+                                  item.word.word,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.word.meaning,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      item.date,
+                                      style: TextStyle(
+                                        color: _WordsOfTheDayScreenState.primaryColor
+                                            .withOpacity(0.8),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: const Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 14,
+                                  color: Colors.grey,
+                                ),
+                                onTap: () {
+                                  if (parsedDate != null) {
+                                    widget.onSelectHistoryDate(parsedDate);
+                                  } else {
+                                    widget.onSelectWord(item.word);
+                                  }
+                                },
+                              );
+                            },
+                          ),
           ),
         ],
       ),
