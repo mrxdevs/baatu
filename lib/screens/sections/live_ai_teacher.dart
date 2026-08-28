@@ -56,7 +56,6 @@ class _LiveAiTeacherScreenState extends State<LiveAiTeacherScreen> {
   // Word-by-word highlighting
   int _currentWordIndex = 0;
   List<String> _currentSpeakingWords = [];
-  String _currentSpeakingText = '';
   Timer? _wordTimer;
   bool _useProgressHandler = false; // Use real TTS progress when available
 
@@ -74,7 +73,6 @@ class _LiveAiTeacherScreenState extends State<LiveAiTeacherScreen> {
     // Add welcome message
     _addWelcomeMessage();
   }
-
 
   void _initializeAI() {
     final apiKey = EnvConfig.googleApiKey;
@@ -108,17 +106,14 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
 
   void _initializeTTS() async {
     await _flutterTts.setLanguage('en-US');
-    await _flutterTts.setSpeechRate(0.45); // Slightly faster for natural pacing
+    await _flutterTts.setSpeechRate(0.48); // Natural conversational pacing
     await _flutterTts.setVolume(1.0);
-    await _flutterTts.setPitch(0.95); // Slightly lower for warmer female voice
+    await _flutterTts.setPitch(1.0);
+    await _flutterTts.setQueueMode(0); // QUEUE_FLUSH for zero audio buffering delay
 
     // Set voice quality for more natural sound
-    await _flutterTts.setQueueMode(1); // Queue mode for smoother transitions
-
-    // Try to get a more natural voice if available
     List<dynamic>? voices = await _flutterTts.getVoices;
     if (voices != null) {
-      // Look for a more natural female voice
       var preferredVoice = voices.firstWhere(
         (voice) =>
             voice['name'].toString().toLowerCase().contains('enhanced') ||
@@ -143,21 +138,26 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
     }
 
     _flutterTts.setStartHandler(() {
-      setState(() {
-        _isSpeaking = true;
-        _avatarState = AvatarState.speaking;
-      });
+      debugPrint('TTS speech actually started on speaker');
+      if (mounted) {
+        setState(() {
+          _isSpeaking = true;
+          _avatarState = AvatarState.speaking;
+          _currentWordIndex = 0;
+        });
+
+        // Only start fallback pacing timer if native progress handler doesn't take over
+        _startFallbackPacingAfterStart();
+      }
     });
 
     _flutterTts.setCompletionHandler(() {
-      // Show last word briefly before clearing
-      if (_currentSpeakingWords.isNotEmpty) {
+      if (_currentSpeakingWords.isNotEmpty && mounted) {
         setState(() {
           _currentWordIndex = _currentSpeakingWords.length - 1;
         });
       }
-      // Delay slightly then clear
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 250), () {
         _stopWordTimer();
         if (mounted) {
           setState(() {
@@ -169,27 +169,31 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
     });
 
     _flutterTts.setErrorHandler((msg) {
+      debugPrint('TTS Error: $msg');
       _stopWordTimer();
-      setState(() {
-        _isSpeaking = false;
-        _avatarState = AvatarState.idle;
-      });
+      if (mounted) {
+        setState(() {
+          _isSpeaking = false;
+          _avatarState = AvatarState.idle;
+        });
+      }
     });
 
-    // Progress handler for exact word tracking (Android)
+    // Native progress handler for real-time word-by-word tracking
     _flutterTts.setProgressHandler((text, start, end, word) {
-      if (mounted && _currentSpeakingText.isNotEmpty) {
-        // We have real progress - stop using timer
+      if (mounted && _currentSpeakingWords.isNotEmpty) {
+        // Native progress received — cancel fallback timer immediately
         if (!_useProgressHandler) {
           _wordTimer?.cancel();
+          _wordTimer = null;
           _useProgressHandler = true;
         }
 
-        // Find which word index corresponds to this position
+        // Find which word index corresponds to character position 'start'
         int charCount = 0;
         for (int i = 0; i < _currentSpeakingWords.length; i++) {
-          final wordEnd = charCount + _currentSpeakingWords[i].length;
-          if (start >= charCount && start < wordEnd + 1) {
+          final wordLen = _currentSpeakingWords[i].length;
+          if (start >= charCount && start <= charCount + wordLen + 1) {
             if (_currentWordIndex != i) {
               setState(() {
                 _currentWordIndex = i;
@@ -197,7 +201,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
             }
             break;
           }
-          charCount = wordEnd + 1; // +1 for space
+          charCount += wordLen + 1; // +1 for whitespace
         }
       }
     });
@@ -466,21 +470,32 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
       _stopWordTimer();
     }
 
-    // Setup word-by-word highlighting
     final words = text.split(RegExp(r'\s+'));
     setState(() {
-      _isSpeaking = true;
-      _avatarState = AvatarState.speaking;
-      _currentSpeakingText = text;
       _currentSpeakingWords = words;
       _currentWordIndex = 0;
+      _useProgressHandler = false;
     });
 
-    _advanceToNextWord();
-
-    // Set volume based on mute state and speak
+    // Set volume based on mute state and speak immediately
     await _flutterTts.setVolume(_isMuted ? 0.0 : 1.0);
     await _flutterTts.speak(text);
+  }
+
+  void _startFallbackPacingAfterStart() {
+    _wordTimer?.cancel();
+    if (_currentSpeakingWords.isEmpty) return;
+
+    // First word duration
+    final firstWord = _currentSpeakingWords[0];
+    final estimatedSyllables = (firstWord.length / 2.5).ceil().clamp(1, 6);
+    final wordDuration = Duration(milliseconds: (estimatedSyllables * 200) + 120);
+
+    _wordTimer = Timer(wordDuration, () {
+      if (mounted && _isSpeaking && !_useProgressHandler) {
+        _advanceToNextWord();
+      }
+    });
   }
 
   void _advanceToNextWord() {
@@ -488,20 +503,23 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
       return;
     }
 
-    // Don't use timer if progress handler is active
+    // Do not use timer if native progress handler is active
     if (_useProgressHandler) return;
+
+    setState(() {
+      _currentWordIndex++;
+    });
 
     final currentWord = _currentSpeakingWords[_currentWordIndex];
     final wordLength = currentWord.length;
-
     final estimatedSyllables = (wordLength / 2.5).ceil().clamp(1, 6);
-    final wordDuration = Duration(milliseconds: (estimatedSyllables * 120) + 60);
+    final wordDuration = Duration(milliseconds: (estimatedSyllables * 200) + 120);
 
     _wordTimer = Timer(wordDuration, () {
-      if (mounted && _currentWordIndex < _currentSpeakingWords.length - 1 && !_useProgressHandler) {
-        setState(() {
-          _currentWordIndex++;
-        });
+      if (mounted &&
+          _isSpeaking &&
+          _currentWordIndex < _currentSpeakingWords.length - 1 &&
+          !_useProgressHandler) {
         _advanceToNextWord();
       }
     });
@@ -513,9 +531,8 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
     setState(() {
       _currentWordIndex = 0;
       _currentSpeakingWords = [];
-      _currentSpeakingText = '';
+      _useProgressHandler = false;
     });
-    _useProgressHandler = false;
   }
 
   Future<void> _stopSpeaking() async {
@@ -877,13 +894,110 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
       extendBodyBehindAppBar: true,
       backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
-        title: const Text(
-          'Sia - Live AI Teacher',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontSize: 20,
-          ),
+        automaticallyImplyLeading: false,
+        // titleSpacing: 16,
+        leading: SizedBox(
+          child: InkWell(
+              onTap: () => Navigator.pop(context),
+              child: Icon(
+                Icons.arrow_back,
+                color: Colors.white,
+                size: 20,
+              )),
+        ),
+        title: Row(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              // mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Sia',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Glowing LIVE Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF3366).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFFF3366).withValues(alpha: 0.6),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF3366).withValues(alpha: 0.2),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFF3366),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0xFFFF3366),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Text(
+                            'LIVE',
+                            style: TextStyle(
+                              color: Color(0xFFFF3366),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    _getStatusText(),
+                    key: ValueKey(_avatarState),
+                    style: TextStyle(
+                      color: _getAvatarColor(),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'Poppins',
+                      shadows: [
+                        Shadow(
+                          color: _getAvatarColor().withValues(alpha: 0.6),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -975,55 +1089,13 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
               ),
             ),
 
-            // ── Status text overlay on character ──
-            Positioned(
-              top: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Container(
-                    key: ValueKey(_avatarState),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _getAvatarColor().withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Text(
-                      _getStatusText(),
-                      style: TextStyle(
-                        color: _getAvatarColor(),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Poppins',
-                        shadows: [
-                          Shadow(
-                            color: _getAvatarColor().withValues(alpha: 0.5),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Chat Messages & Input (overlay on lower portion) ──
+            // ── Chat Messages & Input (floating over full screen) ──
             Positioned.fill(
               child: SafeArea(
                 child: Column(
                   children: [
-                    // Spacer — let character show in the top ~45%
-                    const Spacer(flex: 4),
-                    // Chat takes remaining space
+                    // Chat floats across full screen over character
                     Expanded(
-                      flex: 5,
                       child: _buildChatSection(),
                     ),
                     // Context-aware dynamic suggestions bar
@@ -1053,9 +1125,6 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
         return SiaState.speaking;
     }
   }
-
-
-
 
   Color _getAvatarColor() {
     switch (_avatarState) {
@@ -1108,120 +1177,112 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.82,
+          maxWidth: MediaQuery.of(context).size.width * 0.84,
         ),
-        child: ClipRRect(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isUser
+              ? AppStyles.primaryColor.withValues(alpha: 0.38)
+              : isCurrentlySpeaking
+                  ? const Color(0xFF00D9FF).withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.22),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),
             bottomLeft: Radius.circular(isUser ? 20 : 4),
             bottomRight: Radius.circular(isUser ? 4 : 20),
           ),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isUser
-                      ? [
-                          AppStyles.primaryColor.withValues(alpha: 0.6),
-                          AppStyles.primaryColor.withValues(alpha: 0.3),
-                        ]
-                      : [
-                          Colors.white.withValues(alpha: 0.15),
-                          Colors.white.withValues(alpha: 0.08),
-                        ],
-                ),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(20),
-                  topRight: const Radius.circular(20),
-                  bottomLeft: Radius.circular(isUser ? 20 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 20),
-                ),
-                border: Border.all(
-                  color: isUser
-                      ? AppStyles.primaryColor.withValues(alpha: 0.3)
-                      : isCurrentlySpeaking
-                          ? const Color(0xFF00D9FF).withValues(alpha: 0.5)
-                          : Colors.white.withValues(alpha: 0.1),
-                  width: isCurrentlySpeaking ? 1.5 : 1,
-                ),
-                boxShadow: isCurrentlySpeaking
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF00D9FF).withValues(alpha: 0.15),
-                          blurRadius: 15,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isCurrentlySpeaking)
-                    _buildAnimatedText(message.text)
-                  else
-                    Text(
-                      message.text,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        fontSize: 15,
-                        height: 1.5,
-                        fontFamily: 'Poppins',
-                      ),
+          border: Border.all(
+            color: isUser
+                ? AppStyles.primaryColor.withValues(alpha: 0.45)
+                : isCurrentlySpeaking
+                    ? const Color(0xFF00D9FF).withValues(alpha: 0.5)
+                    : Colors.white.withValues(alpha: 0.12),
+            width: isCurrentlySpeaking ? 1.5 : 1,
+          ),
+          boxShadow: isCurrentlySpeaking
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF00D9FF).withValues(alpha: 0.18),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isCurrentlySpeaking)
+              _buildAnimatedText(message.text)
+            else
+              Text(
+                message.text,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.96),
+                  fontSize: 15,
+                  height: 1.5,
+                  fontFamily: 'Poppins',
+                  shadows: const [
+                    Shadow(
+                      color: Colors.black,
+                      blurRadius: 6,
+                      offset: Offset(0, 1),
                     ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _formatTime(message.timestamp),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 11,
-                          fontFamily: 'Poppins',
-                        ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatTime(message.timestamp),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 11,
+                    fontFamily: 'Poppins',
+                    shadows: const [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 4,
                       ),
-                      // Speak on-demand button for AI messages
-                      if (!isUser) ...[
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: () => _speak(message.text),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.volume_up_rounded,
-                                  size: 14,
-                                  color: AppStyles.secondaryColor.withValues(alpha: 0.9),
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  'Listen',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppStyles.secondaryColor.withValues(alpha: 0.9),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
+                ),
+                // Speak on-demand button for AI messages
+                if (!isUser) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () => _speak(message.text),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.volume_up_rounded,
+                            size: 14,
+                            color: AppStyles.secondaryColor.withValues(alpha: 0.9),
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            'Listen',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppStyles.secondaryColor.withValues(alpha: 0.9),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
-              ),
+              ],
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -1232,10 +1293,17 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
       return Text(
         text,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.95),
+          color: Colors.white.withValues(alpha: 0.96),
           fontSize: 15,
           height: 1.5,
           fontFamily: 'Poppins',
+          shadows: const [
+            Shadow(
+              color: Colors.black,
+              blurRadius: 6,
+              offset: Offset(0, 1),
+            ),
+          ],
         ),
       );
     }
@@ -1255,7 +1323,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                   ? const Color(0xFF00FFFF)
                   : isSpoken
                       ? Colors.white.withValues(alpha: 0.95)
-                      : Colors.white.withValues(alpha: 0.38),
+                      : Colors.white.withValues(alpha: 0.45),
               fontSize: isCurrentWord ? 15.5 : 15,
               height: 1.5,
               fontFamily: 'Poppins',
@@ -1264,9 +1332,8 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                   : isSpoken
                       ? FontWeight.w500
                       : FontWeight.normal,
-              backgroundColor: isCurrentWord
-                  ? const Color(0xFF00D9FF).withValues(alpha: 0.28)
-                  : null,
+              backgroundColor:
+                  isCurrentWord ? const Color(0xFF00D9FF).withValues(alpha: 0.3) : null,
               shadows: isCurrentWord
                   ? const [
                       Shadow(
@@ -1278,14 +1345,13 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                         blurRadius: 6,
                       ),
                     ]
-                  : isSpoken
-                      ? [
-                          Shadow(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            blurRadius: 4,
-                          ),
-                        ]
-                      : null,
+                  : const [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 6,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
             ),
           );
         }).toList(),
@@ -1298,46 +1364,44 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        child: ClipRRect(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  width: 1,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Color(0xFFFFE66D),
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFFFFE66D),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Sia is thinking...',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 14,
-                      fontFamily: 'Poppins',
-                    ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Sia is thinking...',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 14,
+                fontFamily: 'Poppins',
+                shadows: const [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 4,
                   ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
