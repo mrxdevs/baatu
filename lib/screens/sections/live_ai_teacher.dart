@@ -1072,6 +1072,9 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
           children: [
             // ── Full-screen Sia Character (background layer) ──
             Positioned.fill(
+              left: -150,
+              right: -150,
+              bottom: -300,
               child: GestureDetector(
                 onTap: () {
                   if (_isSpeaking) {
