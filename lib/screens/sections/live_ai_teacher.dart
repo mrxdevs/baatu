@@ -9,14 +9,17 @@ import '../../core/config/env_config.dart';
 import '../../services/gemini_service.dart';
 import '../../utils/app_styles.dart';
 
-class AiTeacherScreen extends StatefulWidget {
-  const AiTeacherScreen({super.key});
+class LiveAiTeacherScreen extends StatefulWidget {
+  const LiveAiTeacherScreen({super.key});
+  static const String routeName = '/live_ai_teacher';
 
   @override
-  State<AiTeacherScreen> createState() => _AiTeacherScreenState();
+  State<LiveAiTeacherScreen> createState() => _LiveAiTeacherScreenState();
 }
 
-class _AiTeacherScreenState extends State<AiTeacherScreen> with TickerProviderStateMixin {
+typedef AiTeacherScreen = LiveAiTeacherScreen;
+
+class _LiveAiTeacherScreenState extends State<LiveAiTeacherScreen> with TickerProviderStateMixin {
   // Controllers
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -115,7 +118,7 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> with TickerProviderSt
       model: 'gemini-2.5-flash',
       apiKey: apiKey,
       systemInstruction: Content.system(
-          '''You are Nancy, a friendly, warm, and highly interactive English speaking teacher created by DigiWellie Technology.
+          '''You are Sia, a friendly, warm, and highly interactive English speaking teacher created by DigiWellie Technology.
 
 Your core rules:
 1. **Human Conversational Style**: Speak naturally with warmth, supportive encouragement, and enthusiasm.
@@ -357,7 +360,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
 
   void _addWelcomeMessage() {
     const welcomeText =
-        "Hello! I'm Nancy, your English teacher! 📚 I'm here to help you improve your English speaking skills. What would you like to practice today?";
+        "Hello! I'm Sia, your English teacher! 📚 I'm here to help you improve your English speaking skills. What would you like to practice today?";
     final welcomeMessage = ChatMessage(
       text: welcomeText,
       isUser: false,
@@ -575,7 +578,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
             const SizedBox(width: 8),
             Text(
               _autoSpeak
-                  ? '🗣️ Auto-Speak enabled (Nancy will speak responses)'
+                  ? '🗣️ Auto-Speak enabled (Sia will speak responses)'
                   : '🤫 Auto-Speak disabled (Tap message to listen)',
             ),
           ],
@@ -668,7 +671,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Nancy Voice & Settings',
+                                'Sia Voice & Settings',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -678,7 +681,8 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                               ),
                               Text(
                                 'Control speaking, audio & chat flow',
-                                style: TextStyle(fontSize: 12, color: Colors.white60, fontFamily: 'Poppins'),
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.white60, fontFamily: 'Poppins'),
                               ),
                             ],
                           ),
@@ -741,7 +745,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                               const SizedBox(height: 2),
                               Text(
                                 _autoSpeak
-                                    ? 'Nancy automatically reads out each reply'
+                                    ? 'Sia automatically reads out each reply'
                                     : 'Responses appear silently (tap to read)',
                                 style: const TextStyle(
                                   fontSize: 11,
@@ -807,7 +811,8 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                               const SizedBox(height: 2),
                               Text(
                                 _isMuted ? 'Mute speaker voice' : 'Volume active',
-                                style: const TextStyle(fontSize: 11, color: Colors.white60, fontFamily: 'Poppins'),
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.white60, fontFamily: 'Poppins'),
                               ),
                             ],
                           ),
@@ -906,7 +911,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
       backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
         title: const Text(
-          'Nancy - AI Teacher',
+          'Sia - Live AI Teacher',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -964,7 +969,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                 color: AppStyles.secondaryColor,
                 size: 22,
               ),
-              tooltip: 'Nancy Settings & Voice',
+              tooltip: 'Sia Settings & Voice',
               onPressed: _showUnifiedSettingsModal,
             ),
           ),
@@ -1143,7 +1148,8 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: _getAvatarColor().withValues(alpha: 0.3 - (_waveAnimation.value * 0.3)),
+                      color:
+                          _getAvatarColor().withValues(alpha: 0.3 - (_waveAnimation.value * 0.3)),
                       width: 2,
                     ),
                   ),
@@ -1159,7 +1165,8 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: _getAvatarColor().withValues(alpha: 0.2 - (_waveAnimation.value * 0.2)),
+                      color:
+                          _getAvatarColor().withValues(alpha: 0.2 - (_waveAnimation.value * 0.2)),
                       width: 1.5,
                     ),
                   ),
@@ -1286,13 +1293,13 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
   String _getStatusText() {
     switch (_avatarState) {
       case AvatarState.idle:
-        return '✨ Ready to learn!';
+        return '✨ Sia is ready to practice!';
       case AvatarState.listening:
-        return '🎤 Listening...';
+        return '🎤 Sia is listening...';
       case AvatarState.thinking:
-        return '🤔 Thinking...';
+        return '🤔 Sia is thinking...';
       case AvatarState.speaking:
-        return '🗣️ Speaking...';
+        return '🗣️ Sia is speaking live...';
     }
   }
 
@@ -1357,9 +1364,20 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                 border: Border.all(
                   color: isUser
                       ? AppStyles.primaryColor.withValues(alpha: 0.3)
-                      : Colors.white.withValues(alpha: 0.1),
-                  width: 1,
+                      : isCurrentlySpeaking
+                          ? const Color(0xFF00D9FF).withValues(alpha: 0.5)
+                          : Colors.white.withValues(alpha: 0.1),
+                  width: isCurrentlySpeaking ? 1.5 : 1,
                 ),
+                boxShadow: isCurrentlySpeaking
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF00D9FF).withValues(alpha: 0.15),
+                          blurRadius: 15,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1454,23 +1472,40 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
             text: word + (index < _currentSpeakingWords.length - 1 ? ' ' : ''),
             style: TextStyle(
               color: isCurrentWord
-                  ? AppStyles.secondaryColor
+                  ? const Color(0xFF00FFFF)
                   : isSpoken
-                      ? Colors.white.withValues(alpha: 0.9)
-                      : Colors.white.withValues(alpha: 0.4),
-              fontSize: 15,
+                      ? Colors.white.withValues(alpha: 0.95)
+                      : Colors.white.withValues(alpha: 0.38),
+              fontSize: isCurrentWord ? 15.5 : 15,
               height: 1.5,
               fontFamily: 'Poppins',
-              fontWeight: isCurrentWord ? FontWeight.w600 : FontWeight.normal,
-              backgroundColor: isCurrentWord ? AppStyles.secondaryColor.withValues(alpha: 0.2) : null,
+              fontWeight: isCurrentWord
+                  ? FontWeight.bold
+                  : isSpoken
+                      ? FontWeight.w500
+                      : FontWeight.normal,
+              backgroundColor: isCurrentWord
+                  ? const Color(0xFF00D9FF).withValues(alpha: 0.28)
+                  : null,
               shadows: isCurrentWord
-                  ? [
+                  ? const [
                       Shadow(
-                        color: AppStyles.primaryColor.withValues(alpha: 0.6),
-                        blurRadius: 8,
+                        color: Color(0xFF00FFFF),
+                        blurRadius: 14,
+                      ),
+                      Shadow(
+                        color: Color(0xFF8E4585),
+                        blurRadius: 6,
                       ),
                     ]
-                  : null,
+                  : isSpoken
+                      ? [
+                          Shadow(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                          ),
+                        ]
+                      : null,
             ),
           );
         }).toList(),
@@ -1512,7 +1547,7 @@ SUGGESTIONS: [Question 1] | [Question 2] | [Question 3]'''),
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Nancy is thinking...',
+                    'Sia is thinking...',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 14,

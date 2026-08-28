@@ -13,6 +13,7 @@ import 'package:baatu/screens/navigation_home_bar.dart';
 import 'package:baatu/screens/news_screen.dart';
 import 'package:baatu/screens/profile_screen.dart';
 import 'package:baatu/screens/sections/grammar_screen.dart';
+import 'package:baatu/screens/sections/live_ai_teacher.dart';
 import 'package:baatu/screens/sections/music_screen.dart';
 import 'package:baatu/screens/sections/videos_screen.dart';
 import 'package:baatu/screens/sections/words_screen.dart';
@@ -42,6 +43,7 @@ class RouteHelper {
     WordsScreen.routeName: (context) => const WordsScreen(),
     WordsOfTheDayScreen.routeName: (context) => const WordsOfTheDayScreen(),
     ChatScreen.routeName: (context) => const ChatScreen(),
+    LiveAiTeacherScreen.routeName: (context) => const LiveAiTeacherScreen(),
     CallScreen.routeName: (context) => const CallScreen(
           callingWith: "",
         ),

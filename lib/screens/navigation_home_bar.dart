@@ -1,5 +1,5 @@
 import 'package:baatu/screens/chat_screen.dart';
-import 'package:baatu/screens/sections/ai_teacher.dart';
+import 'package:baatu/screens/sections/live_ai_teacher.dart';
 import 'package:baatu/screens/sections/words_of_the_day_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:baatu/screens/sections/videos_screen.dart';
@@ -82,7 +82,7 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
             mainAxisSpacing: 25,
             crossAxisSpacing: 25,
             children: [
-              _buildHexagonButton('AI Teacher', Icons.school, 5),
+              _buildHexagonButton('Sia (Live AI)', Icons.school, 5),
               _buildHexagonButton('Chat', Icons.chat_bubble, 3),
               _buildHexagonButton('Words', Icons.abc, 0),
               _buildHexagonButton('Videos', Icons.play_arrow, 1),
